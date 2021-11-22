@@ -16,11 +16,11 @@ public class Server {
     //static Vector<tuple> files=new Vector<>();
     static Vector<tuple> activeList=new Vector<>();
     static Vector<File_pair> requests=new Vector<>();
-    static long max_buffer=1024*1024*1024; //1MB
+    static  long max_buffer= 1024L *1024*1024*1024; //1MB
     static int min_chunk=20;
     static int max_chunk=1024;
     static long current_buffer=0;
-    public static void main(String[] args) throws IOException, ClassNotFoundException {
+    public static void main(String[] args) throws IOException {
         ServerSocket welcomeSocket = new ServerSocket(6666);
 
         while(true) {

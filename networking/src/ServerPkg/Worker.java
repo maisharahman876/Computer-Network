@@ -7,6 +7,7 @@ import resources.tuple;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.*;
 
 public class Worker extends Thread {
@@ -14,16 +15,20 @@ public class Worker extends Thread {
     String curr_id;
     pair curr_pair;
     tuple curr_tuple;
+    String curr_file;
     //boolean active;
     Queue<String> q;
+    FileOutputStream fos;
 
-    public Worker(Socket socket)
-    {
+    public Worker(Socket socket) throws SocketException {
         q= new LinkedList<>();
         this.socket = socket;
         curr_id=null;
         curr_tuple=null;
         curr_pair=null;
+        curr_file=null;
+        fos=null;
+
     }
 
     public void run()
@@ -252,33 +257,61 @@ public class Worker extends Thread {
                         byte[] contents = new byte[chunk];
 
                         //Initialize the FileOutputStream to the output file's full path.
-                        FileOutputStream fos = new FileOutputStream("src\\"+curr_id+"\\"+typ+"\\"+curr_id+"_"+name);
+                         fos = new FileOutputStream("src\\"+curr_id+"\\"+typ+"\\"+curr_id+"_"+name);
                         BufferedOutputStream bos = new BufferedOutputStream(fos);
+                        curr_file="src\\"+curr_id+"\\"+typ+"\\"+curr_id+"_"+name;
                         //InputStream is = socket.getInputStream();
                         //No of bytes read in one read() call
                         //contents=in.readAllBytes();
                         int bytesRead = 0;
                         int total=0;			//how many bytes read
                         int chunk_no=1;
-                        while((size-total)>0)	//loop is continued until received byte=totalfilesize
-                        {
+                        boolean check=false;
 
-                            bytesRead=in.read(contents);
-                            total+=bytesRead;
-                            bos.write(contents, 0, bytesRead);
-                            out.writeObject("Chunck No."+chunk_no+" received");
-                            out.flush();
-                            chunk_no++;
-                        }
+                            while((size-total)>0)	//loop is continued until received byte=totalfilesize
+                            {
 
+                                bytesRead=in.read(contents);
+                                total+=bytesRead;
+                                bos.write(contents, 0, bytesRead);
+                                out.writeObject("Chunck No."+chunk_no+" received");
+                                out.flush();
+                                chunk_no++;
+                                String m= (String) in.readObject();
+                                if(m.equalsIgnoreCase("timeout"))
+                                {
+                                    check=true;
+                                    break;
+                                }
+
+                            }
+                            if(check)
+                            {
+
+                                    //System.out.println(curr_file);
+                                    try {
+                                        fos.close();
+                                    } catch (IOException ioException) {
+                                        ioException.printStackTrace();
+                                    }
+                                    File f=new File(curr_file);
+                                    f.delete();
+
+                            }
+                            else {
+                                bos.flush();
+                                fos.close();
+                                out.writeObject("File Sending Complete!");
+                                out.flush();
+                                //in.reset();
+                                Server.current_buffer -= size;
+                                System.out.println("File saved successfully!");
+                                curr_file = null;
+
+
+                            }
                         //System.out.println("ashe");
-                        bos.flush();
-                        fos.close();
-                        out.writeObject("File Sending Complete!");
-                        out.flush();
-                        //in.reset();
-                        Server.current_buffer-=size;
-                         System.out.println("File saved successfully!");
+
                     }
                     else
                     {
@@ -384,8 +417,21 @@ public class Worker extends Thread {
                out.flush();
             }
         } catch (IOException | ClassNotFoundException e) {
+
+
                 curr_pair.inactive();
                 Server.activeList.remove(curr_tuple);
+                if(curr_file!=null)
+                {
+                    //System.out.println(curr_file);
+                    try {
+                        fos.close();
+                    } catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                    File f=new File(curr_file);
+                    f.delete();
+                }
         }
     }
 }

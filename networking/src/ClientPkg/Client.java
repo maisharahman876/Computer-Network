@@ -117,28 +117,36 @@ public class Client {
 
                 if(!serverInput[0].equalsIgnoreCase("buffer")) {
                     // DataOutputStream do =new DataOutputStream(bis);
-                    while (current != fileLength) {
-                        int size = Integer.parseInt(serverInput[1]);
-                        if (fileLength - current >= size)
-                            current += size;
-                        else {
-                            size = (int) (fileLength - current);
-                            current = fileLength;
+                   socket.setSoTimeout(1000);
+                    try {
+                        while (current != fileLength) {
+                            int size = Integer.parseInt(serverInput[1]);
+                            if (fileLength - current >= size)
+                                current += size;
+                            else {
+                                size = (int) (fileLength - current);
+                                current = fileLength;
+                            }
+                            //System.out.println(fileLength);
+                            contents = new byte[size];
+                            bis.read(contents, 0, size);
+                            out.write(contents);
+                            out.flush();
+                            String msg1 = (String) in.readObject();
+                            System.out.println(msg1);
+                            out.writeObject("meo");
+                            //System.out.println(contents);
+
+                            // System.out.println("Sending file ... " + (current * 100) / fileLength + "% complete!");
                         }
-                        //System.out.println(fileLength);
-                        contents = new byte[size];
-                        bis.read(contents, 0, size);
-                        out.write(contents);
-                        out.flush();
                         String msg1 = (String) in.readObject();
                         System.out.println(msg1);
-
-                        //System.out.println(contents);
-
-                       // System.out.println("Sending file ... " + (current * 100) / fileLength + "% complete!");
                     }
-                    String msg1 = (String) in.readObject();
-                    System.out.println(msg1);
+                    catch (java.net.SocketTimeoutException e) {
+                        out.writeObject("Timeout");
+                        out.flush();
+                        System.out.println("Timeout");
+                    }
 
                 }
                 //fis.close();;
