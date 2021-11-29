@@ -3,13 +3,15 @@ package ClientPkg;
 import ServerPkg.Server;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
 import java.util.StringTokenizer;
 
 public class Client {
     public static void main(String[] args) throws IOException, ClassNotFoundException {
-        Socket socket = new Socket("localhost", 6666);
+
+        Socket socket = new Socket(InetAddress.getLocalHost(), 6666);
         System.out.println("Connection established");
         System.out.println("Remote port: " + socket.getPort());
         System.out.println("Local port: " + socket.getLocalPort());
@@ -117,7 +119,7 @@ public class Client {
 
                 if(!serverInput[0].equalsIgnoreCase("buffer")) {
                     // DataOutputStream do =new DataOutputStream(bis);
-                   socket.setSoTimeout(1000);
+                   socket.setSoTimeout(5000);
                     try {
                         while (current != fileLength) {
                             int size = Integer.parseInt(serverInput[1]);
@@ -187,7 +189,7 @@ public class Client {
                     //contents=in.readAllBytes();
                     int bytesRead = 0;
                     int total = 0;            //how many bytes read
-                    System.out.println("ashe");
+                    //System.out.println("ashe");
                     while ((len-total) > 0)    //loop is continued until received byte=totalfilesize
                     {
                         bytesRead=in.read(contents);
@@ -196,7 +198,7 @@ public class Client {
 
                     }
 
-                    System.out.println("ashe");
+                    //System.out.println("ashe");
                     bos.flush();
                     fos.close();
 

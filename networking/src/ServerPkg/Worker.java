@@ -46,7 +46,7 @@ public class Worker extends Thread {
                 StringTokenizer tokenizer = new StringTokenizer(cmd, " ");
                 String[] userInput = new String[1000];
                 int i = 0;
-                System.out.println(cmd);
+                //System.out.println(cmd);
                 while (tokenizer.hasMoreTokens()) {
                     userInput[i] = tokenizer.nextToken();
                     i++;
@@ -149,6 +149,8 @@ public class Worker extends Thread {
                                 s+=file.getName()+"(public)\n";
                             }
                         }
+                        if(s.equalsIgnoreCase(""))
+                            s="You don't have any file.";
                         out.writeObject(s);
 
                     }
@@ -170,6 +172,8 @@ public class Worker extends Thread {
                                 s+=file.getName()+"\n";
                             }
                         }
+                        if(s.equalsIgnoreCase(""))
+                            s="There is no file.";
                         out.writeObject(s);
 
                     }
@@ -275,6 +279,7 @@ public class Worker extends Thread {
                                 total+=bytesRead;
                                 bos.write(contents, 0, bytesRead);
                                 out.writeObject("Chunck No."+chunk_no+" received");
+                                Thread.sleep(10000);
                                 out.flush();
                                 chunk_no++;
                                 String m= (String) in.readObject();
@@ -410,16 +415,18 @@ public class Worker extends Thread {
                         s+=q.peek()+"\n";
                         q.poll();
                     }
+                    if(s.equalsIgnoreCase(""))
+                        s="You don't have any message.";
                     out.writeObject(s);
                 }
                     else
                     continue;
                out.flush();
             }
-        } catch (IOException | ClassNotFoundException e) {
-
-
+        } catch (IOException | ClassNotFoundException | InterruptedException e) {
+            if(curr_pair!=null)
                 curr_pair.inactive();
+            if(curr_tuple!=null)
                 Server.activeList.remove(curr_tuple);
                 if(curr_file!=null)
                 {
