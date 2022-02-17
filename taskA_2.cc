@@ -64,7 +64,7 @@ int main (int argc, char** argv)
       LogComponentEnable ("LrWpanNetDevice", LOG_LEVEL_ALL);
       LogComponentEnable ("SixLowPanNetDevice", LOG_LEVEL_ALL);
     }
-
+  int rate=64*pktpersec;
   uint32_t nWsnNodes = nWifi-1;
   NodeContainer wsnNodes;
   wsnNodes.Create (nWsnNodes);
@@ -91,6 +91,7 @@ int main (int argc, char** argv)
 
   LrWpanHelper lrWpanHelper;
   // Add and install the LrWpanNetDevice for each node
+  
   NetDeviceContainer lrwpanDevices = lrWpanHelper.Install (wsnNodes);
 
   // Fake PAN association and short address assignment.
@@ -103,9 +104,11 @@ int main (int argc, char** argv)
   internetv6.Install (wiredNodes.Get (0));
 
   SixLowPanHelper sixLowPanHelper;
+  //sixLowPanHelper.SetChannelAttribute ("DataRate", StringValue (std::to_string(rate)+"bps"));
   NetDeviceContainer sixLowPanDevices = sixLowPanHelper.Install (lrwpanDevices);
 
   CsmaHelper csmaHelper;
+   csmaHelper.SetChannelAttribute ("DataRate", StringValue (std::to_string(rate)+"bps"));
   NetDeviceContainer csmaDevices = csmaHelper.Install (wiredNodes);
 
   Ipv6AddressHelper ipv6;
@@ -129,12 +132,12 @@ int main (int argc, char** argv)
     }
 
   uint32_t packetSize = 64;
-  uint32_t maxPacketCount = pktpersec;
+  //uint32_t maxPacketCount = pktpersec;
   Time interPacketInterval = Seconds (1.);
 
  for(int i=0;i<nSinks;i++)
   {
-    UdpEchoServerHelper echoServer (i);
+  UdpEchoServerHelper echoServer (i);
   ApplicationContainer serverApps = echoServer.Install (wiredNodes.Get (i%2));
   serverApps.Start (Seconds (1.0+i));
   serverApps.Stop (Seconds (10.0+i));
@@ -145,7 +148,7 @@ int main (int argc, char** argv)
   echoClient.SetAttribute ("PacketSize", UintegerValue (packetSize));
 
   ApplicationContainer clientApps = 
-    echoClient.Install (wsnNodes.Get (nWifi - 1-i));
+    echoClient.Install (wsnNodes.Get (nWsnNodes - 1-i));
   clientApps.Start (Seconds (2.0+i));
   clientApps.Stop (Seconds (10.0+i));
   } 
@@ -176,7 +179,7 @@ AnimationInterface anim ("taskA_2.xml");
   FlowMonitorHelper flowHelper;
   flowMonitor=flowHelper.InstallAll();
   Simulator::Run ();
-  flowMonitor->SerializeToXmlFile("taskA_2.flowmonitor",true,true);
+  flowMonitor->SerializeToXmlFile("taskA_2.flowmonitor",false,false);
   Simulator::Destroy ();
 
 }

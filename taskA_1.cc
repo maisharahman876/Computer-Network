@@ -111,6 +111,7 @@ main (int argc, char *argv[])
                "ActiveProbing", BooleanValue (false));
 
   NetDeviceContainer staDevices;
+  
   staDevices = wifi.Install (phy, mac, wifiStaNodes);
 
   mac.SetType ("ns3::ApWifiMac",
@@ -158,7 +159,7 @@ main (int argc, char *argv[])
 
   for(int i=0;i<nSinks;i++)
   {
-    UdpEchoServerHelper echoServer (i);
+  UdpEchoServerHelper echoServer (i);
   ApplicationContainer serverApps = echoServer.Install (p2pNodes.Get (i%2));
   serverApps.Start (Seconds (1.0+i));
   serverApps.Stop (Seconds (10.0+i));
@@ -167,6 +168,7 @@ main (int argc, char *argv[])
   echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (pktSize));
+  //echoClient.SetAttribute("DataRate",StringValue (std::to_string(rate)+"bps"));
 
   ApplicationContainer clientApps = 
     echoClient.Install (wifiStaNodes.Get (nWifi - 1-i));
