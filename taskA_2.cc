@@ -86,7 +86,7 @@ int main (int argc, char** argv)
                                  "LayoutType", StringValue ("RowFirst"));
   mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
                              "Speed", StringValue (ssSpeed.str ()),
-                             "Bounds", RectangleValue (Rectangle (-50, 50, -50, 50)));
+                             "Bounds", RectangleValue (Rectangle (-500, 500, -500, 500)));
   mobility.Install (wsnNodes);
 
   LrWpanHelper lrWpanHelper;
@@ -139,19 +139,20 @@ int main (int argc, char** argv)
   {
   UdpEchoServerHelper echoServer (i);
   ApplicationContainer serverApps = echoServer.Install (wiredNodes.Get (i%2));
-  serverApps.Start (Seconds (1.0+i));
-  serverApps.Stop (Seconds (10.0+i));
+  serverApps.Start (Seconds (1.0));
+  serverApps.Stop (Seconds (10.0));
 
   UdpEchoClientHelper echoClient (wiredDeviceInterfaces.GetAddress (i%2,1), i);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (10));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (packetSize));
 
   ApplicationContainer clientApps = 
     echoClient.Install (wsnNodes.Get (nWsnNodes - 1-i));
-  clientApps.Start (Seconds (2.0+i));
-  clientApps.Stop (Seconds (10.0+i));
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (Seconds (10.0));
   } 
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 /*
 for(int i=0;i<nSinks;i++){
   Ping6Helper ping6;
@@ -165,21 +166,56 @@ for(int i=0;i<nSinks;i++){
 
   apps.Start (Seconds (1.0+i));
   apps.Stop (Seconds (10.0+i));
-}*/
+}
   AsciiTraceHelper ascii;
   lrWpanHelper.EnableAsciiAll (ascii.CreateFileStream ("Ping-6LoW-lr-wpan-meshunder-lr-wpan.tr"));
   lrWpanHelper.EnablePcapAll (std::string ("Ping-6LoW-lr-wpan-meshunder-lr-wpan"), true);
 
   csmaHelper.EnableAsciiAll (ascii.CreateFileStream ("Ping-6LoW-lr-wpan-meshunder-csma.tr"));
   csmaHelper.EnablePcapAll (std::string ("Ping-6LoW-lr-wpan-meshunder-csma"), true);
-
+*/
+  uint32_t rxPacketsum = 0;
+  double Delaysum = 0; 
+  uint32_t txPacketsum = 0;
+  uint32_t txBytessum = 0;
+  uint32_t rxBytessum = 0;
+  uint32_t txTimeFirst = 0;
+  uint32_t rxTimeLast = 0;
+  uint32_t lostPacketssum = 0;
   Simulator::Stop (Seconds (10));
 AnimationInterface anim ("taskA_2.xml");
   Ptr<FlowMonitor> flowMonitor;
   FlowMonitorHelper flowHelper;
   flowMonitor=flowHelper.InstallAll();
   Simulator::Run ();
+   flowMonitor->CheckForLostPackets ();
+  
+  Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowHelper.GetClassifier ());
+  std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats ();
+  
+  for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin (); i != stats.end (); ++i)
+    {
+	  //Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
+	  rxPacketsum += i->second.rxPackets;
+	  txPacketsum += i->second.txPackets;
+	  txBytessum += i->second.txBytes;
+	  rxBytessum += i->second.rxBytes;
+	  Delaysum += i->second.delaySum.GetSeconds();
+	  lostPacketssum += i->second.lostPackets;
+	  txTimeFirst += i->second.timeFirstTxPacket.GetSeconds();
+	  rxTimeLast += i->second.timeLastRxPacket.GetSeconds();
+	  
+     }
+  
+  
+  uint64_t timeDiff = (rxTimeLast - txTimeFirst);
   flowMonitor->SerializeToXmlFile("taskA_2.flowmonitor",false,false);
+  std::cout << "\n\n";
+
+  std::cout << "  Throughput: " << ((rxBytessum * 8.0) / timeDiff)/1024<<" Kbps"<<"\n";
+  std::cout << "  End to End Delay: " << Delaysum<<"s"<<"\n";
+  std::cout << "  Packets Delivery Ratio: " << (((txPacketsum - lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
+  std::cout << "  Packets Drop Ratio: " << (((lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
   Simulator::Destroy ();
 
 }

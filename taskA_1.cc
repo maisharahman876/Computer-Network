@@ -25,7 +25,10 @@
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/ssid.h"
 #include "ns3/netanim-module.h"
-#include<string>
+#include <iostream>
+#include <cmath>
+#include <string>
+#include <fstream>
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/flow-monitor-module.h"
  
@@ -41,7 +44,7 @@
 //                                     
 
 using namespace ns3;
-
+using namespace std;
 NS_LOG_COMPONENT_DEFINE ("TaskA_1");
 
 int 
@@ -54,12 +57,14 @@ main (int argc, char *argv[])
   uint32_t pktpersec = 100;
   uint32_t coverageArea = 50;
   bool tracing = false;
+  std::string csv="scratch/taskA_1.csv";
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("nWifi", "The number of nodes in the topology", nWifi);
   cmd.AddValue ("nSinks", "The number of flows",nSinks);
   cmd.AddValue ("pktpersec", "Packets per second ",pktpersec);
   cmd.AddValue ("coverageArea", "Coverage area ",coverageArea);
+
   cmd.AddValue ("verbose", "Tell echo applications to log if true", verbose);
   cmd.AddValue ("tracing", "Enable pcap tracing", tracing);
 
@@ -77,7 +82,8 @@ main (int argc, char *argv[])
     }
   int pktSize=64;
   int rate=pktSize*pktpersec;
-  //Config::SetDefault("ns3::RangePropagationLossModel::MaxRange",DoubleValue(5));
+
+  
 
   NodeContainer p2pNodes;
   p2pNodes.Create (2);
@@ -135,12 +141,8 @@ main (int argc, char *argv[])
    mobility.Install (wifiStaNodes);
   mobility.Install (p2pNodes);
 
-  DsdvHelper dsdv;
-  dsdv.Set ("PeriodicUpdateInterval", TimeValue (Seconds (15)));
-  dsdv.Set ("SettlingTime", TimeValue (Seconds (6)));
-  
   InternetStackHelper stack;
-  stack.SetRoutingHelper (dsdv);
+  //stack.SetRoutingHelper (dsdv);
  
   stack.Install (p2pNodes);
   stack.Install (wifiStaNodes);
@@ -159,26 +161,35 @@ main (int argc, char *argv[])
 
   for(int i=0;i<nSinks;i++)
   {
-  UdpEchoServerHelper echoServer (i);
+  UdpEchoServerHelper echoServer (i+1);
   ApplicationContainer serverApps = echoServer.Install (p2pNodes.Get (i%2));
-  serverApps.Start (Seconds (1.0+i));
-  serverApps.Stop (Seconds (10.0+i));
+  serverApps.Start (Seconds (1.0));
+  serverApps.Stop (Seconds (10.0));
 
-  UdpEchoClientHelper echoClient (p2pInterfaces.GetAddress (i%2), i);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+  UdpEchoClientHelper echoClient (p2pInterfaces.GetAddress (i%2), i+1);
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (10));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (pktSize));
   //echoClient.SetAttribute("DataRate",StringValue (std::to_string(rate)+"bps"));
 
   ApplicationContainer clientApps = 
-    echoClient.Install (wifiStaNodes.Get (nWifi - 1-i));
-  clientApps.Start (Seconds (2.0+i));
-  clientApps.Stop (Seconds (10.0+i));
+  echoClient.Install (wifiStaNodes.Get (nWifi - 1-i));
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (Seconds (10.0));
+  //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
   }
-
+Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
   
 
-  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+  
+  uint32_t rxPacketsum = 0;
+  double Delaysum = 0; 
+  uint32_t txPacketsum = 0;
+  uint32_t txBytessum = 0;
+  uint32_t rxBytessum = 0;
+  uint32_t txTimeFirst = 0;
+  uint32_t rxTimeLast = 0;
+  uint32_t lostPacketssum = 0;
 
   Simulator::Stop (Seconds (10.0));
 
@@ -195,7 +206,41 @@ main (int argc, char *argv[])
   FlowMonitorHelper flowHelper;
   flowMonitor=flowHelper.InstallAll();
   Simulator::Run ();
+ // uint16_t k = 0;
+  
+  flowMonitor->CheckForLostPackets ();
+  
+  Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowHelper.GetClassifier ());
+  std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats ();
+  
+  for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin (); i != stats.end (); ++i)
+    {
+	  //Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
+	  rxPacketsum += i->second.rxPackets;
+	  txPacketsum += i->second.txPackets;
+	  txBytessum += i->second.txBytes;
+	  rxBytessum += i->second.rxBytes;
+	  Delaysum += i->second.delaySum.GetSeconds();
+	  lostPacketssum += i->second.lostPackets;
+	  txTimeFirst += i->second.timeFirstTxPacket.GetSeconds();
+	  rxTimeLast += i->second.timeLastRxPacket.GetSeconds();
+	  
+     }
+  
+  
+  uint64_t timeDiff = (rxTimeLast - txTimeFirst);
+  
+  //uint64_t rcvd = sermon->GetReceived();
+  //uint16_t lst = sermon->GetLost();
+  //std::cout << k << "    " << "            " << rxTimeLast << "         " <<txTimeFirst<< "\n\n";
+  //std::cout<<"rec pkts"<<rxPacketsum<<"\n";
   flowMonitor->SerializeToXmlFile("taskA_1.flowmonitor",false,false);
+  std::cout << "\n\n";
+
+  std::cout << "  Throughput: " << ((rxBytessum * 8.0) / timeDiff)/1024<<" Kbps"<<"\n";
+  std::cout << "  End to End Delay: " << Delaysum<<"s"<<"\n";
+  std::cout << "  Packets Delivery Ratio: " << (((txPacketsum - lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
+  std::cout << "  Packets Drop Ratio: " << (((lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
   Simulator::Destroy ();
   return 0;
 }
