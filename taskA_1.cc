@@ -38,7 +38,7 @@
 //                 AP
 //  *    *    *    *
 //  |    |    |    |    10.1.1.0
-// n5   n6   n7   n0 -------------- n1  
+// n2   n3   n4   n0 -------------- n1 
 //                   point-to-point  |   
 //                                   *    
 //                                     
@@ -46,7 +46,17 @@
 using namespace ns3;
 using namespace std;
 NS_LOG_COMPONENT_DEFINE ("TaskA_1");
-
+Ptr<Socket>
+SetupPacketReceive (Ipv4Address addr, Ptr<Node> node)
+{
+  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+  Ptr<Socket> sink = Socket::CreateSocket (node, tid);
+  InetSocketAddress local = InetSocketAddress (addr, 9);
+  sink->Bind (local);
+  //sink->SetRecvCallback (MakeCallback (&RoutingExperiment::ReceivePacket, this));
+ 
+  return sink;
+}
 int 
 main (int argc, char *argv[])
 {
@@ -58,6 +68,7 @@ main (int argc, char *argv[])
   uint32_t coverageArea = 50;
   bool tracing = false;
   std::string csv="scratch/taskA_1.csv";
+  std::string phyMode ("DsssRate11Mbps");
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("nWifi", "The number of nodes in the topology", nWifi);
@@ -73,6 +84,7 @@ main (int argc, char *argv[])
   // The underlying restriction of 18 is due to the grid position
   // allocator's configuration; the grid layout will exceed the
   // bounding box if more than 18 nodes are provided.
+  std::ofstream out (csv.c_str (),std::ios::app);
  
   nWifi-=2;
   if (verbose)
@@ -82,10 +94,12 @@ main (int argc, char *argv[])
     }
   int pktSize=64;
   int rate=pktSize*pktpersec;
-
+  Config::SetDefault  ("ns3::OnOffApplication::PacketSize",StringValue ("64"));
+  Config::SetDefault ("ns3::OnOffApplication::DataRate",  StringValue (to_string(rate)+"bps"));
+  Config::SetDefault ("ns3::WifiRemoteStationManager::NonUnicastMode",StringValue (phyMode));
   
 
-  NodeContainer p2pNodes;
+  /*NodeContainer p2pNodes;
   p2pNodes.Create (2);
 
   PointToPointHelper pointToPoint;
@@ -95,36 +109,40 @@ main (int argc, char *argv[])
   NetDeviceContainer p2pDevices;
   p2pDevices = pointToPoint.Install (p2pNodes);
 
-
+*/
   
 
-  NodeContainer wifiStaNodes;
-  wifiStaNodes.Create (nWifi);
-  NodeContainer wifiApNode = p2pNodes.Get (0);
+  NodeContainer wifiNodes;
+  wifiNodes.Create (nWifi);
+  
 
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
-  channel.AddPropagationLoss("ns3::RangePropagationLossModel","MaxRange",DoubleValue(coverageArea));
-  YansWifiPhyHelper phy;
-  phy.SetChannel (channel.Create ());
-
-  WifiHelper wifi;
-  wifi.SetRemoteStationManager ("ns3::AarfWifiManager");
-
-  WifiMacHelper mac;
+  WifiHelper wifi1;
+  wifi1.SetStandard (WIFI_STANDARD_80211b);
+ 
+  YansWifiPhyHelper wifiPhy1;
+  YansWifiChannelHelper wifiChannel1;
+  wifiChannel1.AddPropagationLoss("ns3::RangePropagationLossModel","MaxRange",DoubleValue(coverageArea));
+  wifiChannel1.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
+  wifiChannel1.AddPropagationLoss ("ns3::FriisPropagationLossModel");
+  wifiPhy1.SetChannel (wifiChannel1.Create ());
+ 
+  // Add a mac and disable rate control
+  WifiMacHelper wifiMac1;
+  wifi1.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+                                "DataMode",StringValue (phyMode),
+                                "ControlMode",StringValue (phyMode));
+ 
+  wifiPhy1.Set ("TxPowerStart",DoubleValue (7.5));
+  wifiPhy1.Set ("TxPowerEnd", DoubleValue (7.5));
+ 
   Ssid ssid = Ssid ("ns-3-ssid");
-  mac.SetType ("ns3::StaWifiMac",
-               "Ssid", SsidValue (ssid),
-               "ActiveProbing", BooleanValue (false));
-
-  NetDeviceContainer staDevices;
-  
-  staDevices = wifi.Install (phy, mac, wifiStaNodes);
-
-  mac.SetType ("ns3::ApWifiMac",
+  wifiMac1.SetType ("ns3::AdhocWifiMac",
                "Ssid", SsidValue (ssid));
+  NetDeviceContainer Devices = wifi1.Install (wifiPhy1, wifiMac1,wifiNodes );
+  
+  
 
-  NetDeviceContainer apDevices;
-  apDevices = wifi.Install (phy, mac, wifiApNode);
+  
 
   MobilityHelper mobility;
 
@@ -138,28 +156,28 @@ main (int argc, char *argv[])
 
 
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-   mobility.Install (wifiStaNodes);
-  mobility.Install (p2pNodes);
+   mobility.Install (wifiNodes);
+  //mobility.Install (p2pNodes);
 
   InternetStackHelper stack;
   //stack.SetRoutingHelper (dsdv);
  
-  stack.Install (p2pNodes);
-  stack.Install (wifiStaNodes);
+  //stack.Install (p2pNodes);
+  stack.Install (wifiNodes);
 
   Ipv4AddressHelper address;
 
   address.SetBase ("10.1.1.0", "255.255.255.0");
-  Ipv4InterfaceContainer p2pInterfaces;
-  p2pInterfaces = address.Assign (p2pDevices);
+  Ipv4InterfaceContainer Interfaces;
+  Interfaces = address.Assign (Devices);
 
-  address.SetBase ("10.1.3.0", "255.255.255.0");
+  /*address.SetBase ("10.1.3.0", "255.255.255.0");
   address.Assign (staDevices);
-  address.Assign (apDevices);
+  address.Assign (apDevices);*/
 
 
 
-  for(int i=0;i<nSinks;i++)
+ /* for(int i=0;i<nSinks;i++)
   {
   UdpEchoServerHelper echoServer (i+1);
   ApplicationContainer serverApps = echoServer.Install (p2pNodes.Get (i%2));
@@ -179,7 +197,30 @@ main (int argc, char *argv[])
   //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
   }
 Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-  
+ */
+OnOffHelper onoff1 ("ns3::UdpSocketFactory",Address ());
+  onoff1.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
+  onoff1.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
+ 
+  for (int i = 0; i < nSinks; i++)
+    {
+      Ptr<Socket> sink1 = SetupPacketReceive (Interfaces.GetAddress (i), wifiNodes.Get (i));
+ 
+      AddressValue remoteAddress1 (InetSocketAddress (Interfaces.GetAddress (i), 9));
+      onoff1.SetAttribute ("Remote", remoteAddress1);
+ 
+      Ptr<UniformRandomVariable> var1 = CreateObject<UniformRandomVariable> ();
+      ApplicationContainer temp1 = onoff1.Install (wifiNodes.Get (i+nSinks/2));
+      
+      
+      //////////////////////////////////////////////////////
+   
+      
+      temp1.Start (Seconds (var1->GetValue (1.0,2.0)));
+      temp1.Stop (Seconds (10.0));
+      
+     
+    } 
 
   
   uint32_t rxPacketsum = 0;
@@ -193,14 +234,7 @@ Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   Simulator::Stop (Seconds (10.0));
 
- /* if (tracing)
-    {
-      phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
-      pointToPoint.EnablePcapAll ("third");
-      phy.EnablePcap ("third", apDevices.Get (0));
-      csma.EnablePcap ("third", csmaDevices.Get (0), true);
-    }
-    */
+ 
   AnimationInterface anim ("taskA_1.xml");
   Ptr<FlowMonitor> flowMonitor;
   FlowMonitorHelper flowHelper;
@@ -221,7 +255,7 @@ Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 	  txBytessum += i->second.txBytes;
 	  rxBytessum += i->second.rxBytes;
 	  Delaysum += i->second.delaySum.GetSeconds();
-	  lostPacketssum += i->second.lostPackets;
+	  lostPacketssum += i->second.txPackets-i->second.rxPackets;
 	  txTimeFirst += i->second.timeFirstTxPacket.GetSeconds();
 	  rxTimeLast += i->second.timeLastRxPacket.GetSeconds();
 	  
@@ -236,11 +270,14 @@ Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
   //std::cout<<"rec pkts"<<rxPacketsum<<"\n";
   flowMonitor->SerializeToXmlFile("taskA_1.flowmonitor",false,false);
   std::cout << "\n\n";
-
+  double th=((rxBytessum * 8.0) / timeDiff)/1024;
   std::cout << "  Throughput: " << ((rxBytessum * 8.0) / timeDiff)/1024<<" Kbps"<<"\n";
   std::cout << "  End to End Delay: " << Delaysum<<"s"<<"\n";
-  std::cout << "  Packets Delivery Ratio: " << (((txPacketsum - lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
+  std::cout << "  Packets Delivery Ratio: " << (((rxPacketsum) * 100) /txPacketsum) << "%" << "\n";
   std::cout << "  Packets Drop Ratio: " << (((lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
+  
   Simulator::Destroy ();
+  out<<pktpersec<<","<<th<<","<<Delaysum<<","<<(((rxPacketsum) * 100) /txPacketsum)<<","<<(((lostPacketssum) * 100) /txPacketsum)<<endl;
+  out.close();
   return 0;
 }

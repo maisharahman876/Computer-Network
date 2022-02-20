@@ -37,7 +37,18 @@
 #include "ns3/flow-monitor-module.h"
 
 using namespace ns3;
-
+using namespace std;
+Ptr<Socket>
+SetupPacketReceive (Ipv6Address addr, Ptr<Node> node)
+{
+  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+  Ptr<Socket> sink = Socket::CreateSocket (node, tid);
+  Inet6SocketAddress local = Inet6SocketAddress (addr, 9);
+  sink->Bind (local);
+  //sink->SetRecvCallback (MakeCallback (&RoutingExperiment::ReceivePacket, this));
+ 
+  return sink;
+}
 int main (int argc, char** argv)
 {
   bool verbose = false;
@@ -45,6 +56,7 @@ int main (int argc, char** argv)
   int nSinks =5;
   uint32_t pktpersec = 100;
   int Speed=5;
+  std::string csv="scratch/taskA_2.csv";
   Packet::EnablePrinting ();
 
   CommandLine cmd (__FILE__);
@@ -64,14 +76,16 @@ int main (int argc, char** argv)
       LogComponentEnable ("LrWpanNetDevice", LOG_LEVEL_ALL);
       LogComponentEnable ("SixLowPanNetDevice", LOG_LEVEL_ALL);
     }
+  std::ofstream out (csv.c_str (),std::ios::app);
   int rate=64*pktpersec;
-  uint32_t nWsnNodes = nWifi-1;
+  uint32_t nWsnNodes = nWifi;
   NodeContainer wsnNodes;
   wsnNodes.Create (nWsnNodes);
-
-  NodeContainer wiredNodes;
+  Config::SetDefault  ("ns3::OnOffApplication::PacketSize",StringValue ("64"));
+  Config::SetDefault ("ns3::OnOffApplication::DataRate",  StringValue (to_string(rate)+"bps"));
+  /*NodeContainer wiredNodes;
   wiredNodes.Create (1);
-  wiredNodes.Add (wsnNodes.Get (0));
+  wiredNodes.Add (wsnNodes.Get (0));*/
 
   MobilityHelper mobility;
    std::stringstream ssSpeed;
@@ -101,22 +115,22 @@ int main (int argc, char** argv)
 
   InternetStackHelper internetv6;
   internetv6.Install (wsnNodes);
-  internetv6.Install (wiredNodes.Get (0));
+  //internetv6.Install (wiredNodes.Get (0));
 
   SixLowPanHelper sixLowPanHelper;
   //sixLowPanHelper.SetChannelAttribute ("DataRate", StringValue (std::to_string(rate)+"bps"));
   NetDeviceContainer sixLowPanDevices = sixLowPanHelper.Install (lrwpanDevices);
 
-  CsmaHelper csmaHelper;
+  /*CsmaHelper csmaHelper;
    csmaHelper.SetChannelAttribute ("DataRate", StringValue (std::to_string(rate)+"bps"));
   NetDeviceContainer csmaDevices = csmaHelper.Install (wiredNodes);
-
+*/
   Ipv6AddressHelper ipv6;
-  ipv6.SetBase (Ipv6Address ("2001:cafe::"), Ipv6Prefix (64));
+ /* ipv6.SetBase (Ipv6Address ("2001:cafe::"), Ipv6Prefix (64));
   Ipv6InterfaceContainer wiredDeviceInterfaces;
   wiredDeviceInterfaces = ipv6.Assign (csmaDevices);
   wiredDeviceInterfaces.SetForwarding (1, true);
-  wiredDeviceInterfaces.SetDefaultRouteInAllNodes (1);
+  wiredDeviceInterfaces.SetDefaultRouteInAllNodes (1);*/
 
   ipv6.SetBase (Ipv6Address ("2001:f00d::"), Ipv6Prefix (64));
   Ipv6InterfaceContainer wsnDeviceInterfaces;
@@ -131,28 +145,34 @@ int main (int argc, char** argv)
       dev->SetAttribute ("MeshUnderRadius", UintegerValue (10));
     }
 
-  uint32_t packetSize = 64;
+  //uint32_t packetSize = 64;
   //uint32_t maxPacketCount = pktpersec;
   Time interPacketInterval = Seconds (1.);
 
- for(int i=0;i<nSinks;i++)
-  {
-  UdpEchoServerHelper echoServer (i);
-  ApplicationContainer serverApps = echoServer.Install (wiredNodes.Get (i%2));
-  serverApps.Start (Seconds (1.0));
-  serverApps.Stop (Seconds (10.0));
-
-  UdpEchoClientHelper echoClient (wiredDeviceInterfaces.GetAddress (i%2,1), i);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (10));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-  echoClient.SetAttribute ("PacketSize", UintegerValue (packetSize));
-
-  ApplicationContainer clientApps = 
-    echoClient.Install (wsnNodes.Get (nWsnNodes - 1-i));
-  clientApps.Start (Seconds (2.0));
-  clientApps.Stop (Seconds (10.0));
-  } 
-  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+ OnOffHelper onoff1 ("ns3::UdpSocketFactory",Address ());
+  onoff1.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
+  onoff1.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
+ 
+  for (int i = 0; i < nSinks; i++)
+    {
+      Ptr<Socket> sink1 = SetupPacketReceive (wsnDeviceInterfaces.GetAddress (i,1), wsnNodes.Get (i));
+ 
+      AddressValue remoteAddress1 (Inet6SocketAddress (wsnDeviceInterfaces.GetAddress (i,1), 9));
+      onoff1.SetAttribute ("Remote", remoteAddress1);
+ 
+      Ptr<UniformRandomVariable> var1 = CreateObject<UniformRandomVariable> ();
+      ApplicationContainer temp1 = onoff1.Install (wsnNodes.Get (nWifi-i-1));
+      
+      
+      //////////////////////////////////////////////////////
+   
+      
+      temp1.Start (Seconds (var1->GetValue (1.0,2.0)));
+      temp1.Stop (Seconds (10.0));
+      
+     
+    } 
+  //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 /*
 for(int i=0;i<nSinks;i++){
   Ping6Helper ping6;
@@ -201,7 +221,7 @@ AnimationInterface anim ("taskA_2.xml");
 	  txBytessum += i->second.txBytes;
 	  rxBytessum += i->second.rxBytes;
 	  Delaysum += i->second.delaySum.GetSeconds();
-	  lostPacketssum += i->second.lostPackets;
+	  lostPacketssum += i->second.txPackets-i->second.rxPackets;
 	  txTimeFirst += i->second.timeFirstTxPacket.GetSeconds();
 	  rxTimeLast += i->second.timeLastRxPacket.GetSeconds();
 	  
@@ -211,11 +231,13 @@ AnimationInterface anim ("taskA_2.xml");
   uint64_t timeDiff = (rxTimeLast - txTimeFirst);
   flowMonitor->SerializeToXmlFile("taskA_2.flowmonitor",false,false);
   std::cout << "\n\n";
-
+  double th=((rxBytessum * 8.0) / timeDiff)/1024;
   std::cout << "  Throughput: " << ((rxBytessum * 8.0) / timeDiff)/1024<<" Kbps"<<"\n";
   std::cout << "  End to End Delay: " << Delaysum<<"s"<<"\n";
-  std::cout << "  Packets Delivery Ratio: " << (((txPacketsum - lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
-  std::cout << "  Packets Drop Ratio: " << (((lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
+  std::cout << "  Packets Delivery Ratio: " << (((rxPacketsum ) * 100) /txPacketsum) << "%" << "\n";
+  std::cout << "  Packets Drop Ratio: " << (((txPacketsum-rxPacketsum) * 100) /txPacketsum) << "%" << "\n";
+  out<<nWifi<<","<<th<<","<<Delaysum<<","<<(((rxPacketsum) * 100) /txPacketsum)<<","<<(((lostPacketssum) * 100) /txPacketsum)<<endl;
+  out.close();
   Simulator::Destroy ();
 
 }
