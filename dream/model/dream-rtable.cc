@@ -381,5 +381,56 @@ RoutingTable::GetEventId (Ipv4Address address)
       return i->second;
     }
 }
+///////Maisha///////
+void 
+RoutingTable::AddMobilityData(Ipv4Address src, uint32_t x, uint32_t y, float v)
+{
+  for(std::map <Ipv4Address,std::tuple<uint32_t,uint32_t,float>>::const_iterator i=m_locationEntry.begin();i!=m_locationEntry.end();++i)
+  {
+    if(i->first==src)
+    {
+      m_locationEntry.erase(i);
+    }
+  }
+  m_locationEntry.insert({src, std::make_tuple(x,y,v)});
+}
+Ipv4Address 
+RoutingTable::getClosestAddress(Ipv4Address src)
+{
+  uint32_t x=0,y=0;
+  Ipv4Address address=Ipv4Address();
+  
+  float v=0.0;
+  for(std::map <Ipv4Address,std::tuple<uint32_t,uint32_t,float>>::const_iterator i=m_locationEntry.begin();i!=m_locationEntry.end();++i)
+  {
+    if(i->first==src)
+    {
+      x=std::get<0>(i->second);
+      y=std::get<1>(i->second);
+      v=std::get<2>(i->second);
+    }
+  }
+  float theta = std::asin(v*0.000000015/sqrt(x*x+y*y));
+  float  min=-999999999.99;
+  for(std::map <Ipv4Address,std::tuple<uint32_t,uint32_t,float>>::const_iterator i=m_locationEntry.begin();i!=m_locationEntry.end();++i)
+  {
+    if(i->first!=src)
+    {
+      x=std::get<0>(i->second);
+      y=std::get<1>(i->second);
+      v=std::get<2>(i->second);
+      float alpha=std::asin(v*0.000000015/sqrt(x*x+y*y));
+      if(std::abs(alpha-theta)<min)
+      {
+        min=alpha;
+        address=i->first;
+      }
+    }
+  }
+
+return address;
+  
+}
+  ////////////////////
 }
 }

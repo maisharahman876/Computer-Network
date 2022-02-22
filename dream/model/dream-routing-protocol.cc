@@ -38,6 +38,7 @@
 #include "ns3/boolean.h"
 #include "ns3/double.h"
 #include "ns3/uinteger.h"
+#include <ns3/mobility-model.h>
 
 namespace ns3 {
 
@@ -421,7 +422,9 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
           return true;
         }
     }
+  
   // LOCAL DELIVARY TO dream INTERFACES
+
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
        != m_socketAddresses.end (); ++j)
     {
@@ -600,6 +603,14 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
       NS_LOG_DEBUG ("Received a dream packet from "
                     << sender << " to " << receiver << ". Details are: Destination: " << dreamHeader.GetDst () << ", Seq No: "
                     << dreamHeader.GetDstSeqno () << ", HopCount: " << dreamHeader.GetHopCount ());
+      
+      ///Adding the position and speed of the node or update it if was found before
+      
+      Ipv4Address source=dreamHeader.GetSrc();
+
+      m_routingTable.AddMobilityData(source,dreamHeader.GetX(),dreamHeader.GetY(),dreamHeader.GetSpeed());
+
+      //////////////////////////
       RoutingTableEntry fwdTableEntry, advTableEntry;
       EventId event;
       bool permanentTableVerifier = m_routingTable.LookupRoute (dreamHeader.GetDst (),fwdTableEntry);
@@ -661,7 +672,10 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
-                      advTableEntry.SetNextHop (sender);
+                      //////Maisha////////////
+                      //advTableEntry.SetNextHop (sender);
+                      advTableEntry.SetNextHop (m_routingTable.getClosestAddress(dreamHeader.GetDst ()));
+                      //////////////////
                       advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       NS_LOG_DEBUG ("Received update with better sequence number and changed metric.Waiting for WST");
                       Time tempSettlingtime = GetSettlingTime (dreamHeader.GetDst ());
@@ -682,7 +696,10 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
-                      advTableEntry.SetNextHop (sender);
+                      //////Maisha////////////
+                      //advTableEntry.SetNextHop (sender);
+                      advTableEntry.SetNextHop (m_routingTable.getClosestAddress(dreamHeader.GetDst ()));
+                      //////////////////
                       advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       m_advRoutingTable.Update (advTableEntry);
                       NS_LOG_DEBUG ("Route with better sequence number and same metric received. Advertised without WST");
@@ -702,7 +719,10 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
-                      advTableEntry.SetNextHop (sender);
+                      //////Maisha////////////
+                      //advTableEntry.SetNextHop (sender);
+                      advTableEntry.SetNextHop (m_routingTable.getClosestAddress(dreamHeader.GetDst ()));
+                      //////////////////
                       advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       Time tempSettlingtime = GetSettlingTime (dreamHeader.GetDst ());
                       advTableEntry.SetSettlingTime (tempSettlingtime);
@@ -827,6 +847,18 @@ RoutingProtocol::SendTriggeredUpdate ()
                 {
                   m_routingTable.Update (temp);
                 }
+              ////////////////Maisha//////////////////
+              Ptr<Node> node=m_ipv4->GetObject<Node> ();
+              Ptr<MobilityModel> mob=m_ipv4->GetObject<MobilityModel> ();
+              dreamHeader.SetSrc(m_mainAddress);
+              dreamHeader.SetX((uint32_t)(mob->GetPosition().x));
+              dreamHeader.SetY((uint32_t)(mob->GetPosition().y));
+              double vx=mob->GetVelocity().x;
+              double vy=mob->GetVelocity().y;
+              double vz=mob->GetVelocity().z;
+              double v=sqrt(vx*vx+vy*vy+vz*vz);
+              dreamHeader.SetSpeed((float)(v));
+              ///////////////////////////////
               packet->AddHeader (dreamHeader);
               m_advRoutingTable.DeleteRoute (temp.GetDestination ());
               NS_LOG_DEBUG ("Deleted this route from the advertised table");
@@ -846,6 +878,18 @@ RoutingProtocol::SendTriggeredUpdate ()
           dreamHeader.SetDst (m_ipv4->GetAddress (1, 0).GetLocal ());
           dreamHeader.SetDstSeqno (temp2.GetSeqNo ());
           dreamHeader.SetHopCount (temp2.GetHop () + 1);
+          ////////////////Maisha//////////////////
+          Ptr<Node> node=m_ipv4->GetObject<Node> ();
+          Ptr<MobilityModel> mob=m_ipv4->GetObject<MobilityModel> ();
+              dreamHeader.SetSrc(m_mainAddress);
+              dreamHeader.SetX((uint32_t)(mob->GetPosition().x));
+              dreamHeader.SetY((uint32_t)(mob->GetPosition().y));
+              double vx=mob->GetVelocity().x;
+              double vy=mob->GetVelocity().y;
+              double vz=mob->GetVelocity().z;
+              double v=sqrt(vx*vx+vy*vy+vz*vz);
+              dreamHeader.SetSpeed((float)(v));
+              ///////////////////////////////
           NS_LOG_DEBUG ("Adding my update as well to the packet");
           packet->AddHeader (dreamHeader);
           // Send to all-hosts broadcast if on /32 addr, subnet-directed otherwise
@@ -897,6 +941,19 @@ RoutingProtocol::SendPeriodicUpdate ()
               dreamHeader.SetDst (m_ipv4->GetAddress (1,0).GetLocal ());
               dreamHeader.SetDstSeqno (i->second.GetSeqNo () + 2);
               dreamHeader.SetHopCount (i->second.GetHop () + 1);
+              ////////////////Maisha//////////////////
+              Ptr<Node> node=m_ipv4->GetObject<Node> ();
+               Ptr<MobilityModel> mob=m_ipv4->GetObject<MobilityModel> ();
+              dreamHeader.SetSrc(m_mainAddress);
+              dreamHeader.SetX((uint32_t)(mob->GetPosition().x));
+              dreamHeader.SetY((uint32_t)(mob->GetPosition().y));
+              double vx=mob->GetVelocity().x;
+              double vy=mob->GetVelocity().y;
+              double vz=mob->GetVelocity().z;
+              double v=sqrt(vx*vx+vy*vy+vz*vz);
+              dreamHeader.SetSpeed((float)(v));
+              m_routingTable.AddMobilityData(m_mainAddress,dreamHeader.GetX(),dreamHeader.GetY(),v);
+              ///////////////////////////////
               m_routingTable.LookupRoute (m_ipv4->GetAddress (1,0).GetBroadcast (),ownEntry);
               ownEntry.SetSeqNo (dreamHeader.GetDstSeqno ());
               m_routingTable.Update (ownEntry);
@@ -907,6 +964,18 @@ RoutingProtocol::SendPeriodicUpdate ()
               dreamHeader.SetDst (i->second.GetDestination ());
               dreamHeader.SetDstSeqno ((i->second.GetSeqNo ()));
               dreamHeader.SetHopCount (i->second.GetHop () + 1);
+              ////////////////Maisha//////////////////
+              Ptr<Node> node=m_ipv4->GetObject<Node> ();
+               Ptr<MobilityModel> mob=m_ipv4->GetObject<MobilityModel> ();
+              dreamHeader.SetSrc(m_mainAddress);
+              dreamHeader.SetX((uint32_t)(mob->GetPosition().x));
+              dreamHeader.SetY((uint32_t)(mob->GetPosition().y));
+              double vx=mob->GetVelocity().x;
+              double vy=mob->GetVelocity().y;
+              double vz=mob->GetVelocity().z;
+              double v=sqrt(vx*vx+vy*vy+vz*vz);
+              dreamHeader.SetSpeed((float)(v));
+              ///////////////////////////////
               packet->AddHeader (dreamHeader);
             }
           NS_LOG_DEBUG ("Forwarding the update for " << i->first);
@@ -922,6 +991,18 @@ RoutingProtocol::SendPeriodicUpdate ()
           removedHeader.SetDst (rmItr->second.GetDestination ());
           removedHeader.SetDstSeqno (rmItr->second.GetSeqNo () + 1);
           removedHeader.SetHopCount (rmItr->second.GetHop () + 1);
+          ////////////////Maisha//////////////////
+              Ptr<Node> node=m_ipv4->GetObject<Node> ();
+               Ptr<MobilityModel> mob=m_ipv4->GetObject<MobilityModel> ();
+              removedHeader.SetSrc(m_mainAddress);
+              removedHeader.SetX((uint32_t)(mob->GetPosition().x));
+              removedHeader.SetY((uint32_t)(mob->GetPosition().y));
+              double vx=mob->GetVelocity().x;
+              double vy=mob->GetVelocity().y;
+              double vz=mob->GetVelocity().z;
+              double v=sqrt(vx*vx+vy*vy+vz*vz);
+              removedHeader.SetSpeed((float)(v));
+              ///////////////////////////////
           packet->AddHeader (removedHeader);
           NS_LOG_DEBUG ("Update for removed record is: Destination: " << removedHeader.GetDst ()
                                                                       << " SeqNo:" << removedHeader.GetDstSeqno ()

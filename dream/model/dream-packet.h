@@ -96,6 +96,17 @@ public:
   {
     return m_dst;
   }
+  void
+  SetSrc (Ipv4Address destination)
+  {
+    m_src = destination;
+  }
+  
+  Ipv4Address
+  GetSrc () const
+  {
+    return m_src;
+  }
   /**
    * Set hop count
    * \param hopCount the hop count
@@ -163,6 +174,7 @@ public:
     m_speed=v;
   }
 private:
+  Ipv4Address m_src; ///< Source IP Address
   Ipv4Address m_dst; ///< Destination IP Address
   uint32_t m_hopCount; ///< Number of Hops
   uint32_t m_dstSeqNo; ///< Destination Sequence Number

@@ -441,6 +441,10 @@ public:
     */
   EventId
   GetEventId (Ipv4Address address);
+  ///////Maisha///////
+  void AddMobilityData(Ipv4Address src, uint32_t x, uint32_t y, float v);
+  Ipv4Address getClosestAddress(Ipv4Address src);
+  ////////////////////
 
   /**
    * Get hold down time (time until an invalid route may be deleted)

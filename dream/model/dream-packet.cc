@@ -78,6 +78,7 @@ void
 DreamHeader::Serialize (Buffer::Iterator i) const
 {
   WriteTo (i, m_dst);
+  WriteTo (i, m_src);
   i.WriteHtonU32 (m_hopCount);
   i.WriteHtonU32 (m_dstSeqNo);
   i.WriteHtonU32 (m_x);
@@ -91,6 +92,7 @@ DreamHeader::Deserialize (Buffer::Iterator start)
   Buffer::Iterator i = start;
 
   ReadFrom (i, m_dst);
+  ReadFrom (i, m_src);
   m_hopCount = i.ReadNtohU32 ();
   m_dstSeqNo = i.ReadNtohU32 ();
   m_x=i.ReadNtohU32 ();
@@ -105,6 +107,7 @@ void
 DreamHeader::Print (std::ostream &os) const
 {
   os << "DestinationIpv4: " << m_dst
+    << "SourceIpv4: " << m_src
      << " Hopcount: " << m_hopCount
      << " SequenceNumber: " << m_dstSeqNo
      << " PositionX: " << m_x
