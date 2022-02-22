@@ -36,22 +36,21 @@
 #include "ns3/header.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/nstime.h"
-#include<string>
 
 namespace ns3 {
 namespace dream {
 /**
  * \ingroup dream
- * \brief Dream Update Packet Format
+ * \brief dream Update Packet Format
  * \verbatim
  |      0        |      1        |      2        |       3       |
   0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                 Destination  Address                          |
+ |                      Destination Address                      |
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                            Type                               |
+ |                            HopCount                           |
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                       Sequence no                             |
+ |                       Sequence Number                         |
  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * \endverbatim
  */
@@ -63,10 +62,10 @@ public:
    * Constructor
    *
    * \param dst destination IP address
-   * \param msgtype
+   * \param hopcount hop count
    * \param dstSeqNo destination sequence number
    */
-  DreamHeader (Ipv4Address dst = Ipv4Address (), std:: string type="",uint32_t dstSeqNo = 0);
+  DreamHeader (Ipv4Address dst = Ipv4Address (), uint32_t hopcount = 0, uint32_t dstSeqNo = 0,uint32_t x=0,uint32_t y=0,float speed=0.0);
   virtual ~DreamHeader ();
   /**
    * \brief Get the type ID.
@@ -97,6 +96,28 @@ public:
   {
     return m_dst;
   }
+  /**
+   * Set hop count
+   * \param hopCount the hop count
+   */
+  void
+  SetHopCount (uint32_t hopCount)
+  {
+    m_hopCount = hopCount;
+  }
+  /**
+   * Get hop count
+   * \returns the hop count
+   */
+  uint32_t
+  GetHopCount () const
+  {
+    return m_hopCount;
+  }
+  /**
+   * Set destination sequence number
+   * \param sequenceNumber The sequence number
+   */
   void
   SetDstSeqno (uint32_t sequenceNumber)
   {
@@ -111,24 +132,43 @@ public:
   {
     return m_dstSeqNo;
   }
-  
-  void
-  SetMsgType (std::string type)
+  uint32_t
+  GetX()
   {
-    m_type = type;
+    return m_x;
   }
-  
-  std::string
-  GetMsgType () const
+  void 
+  SetX(uint32_t nx)
   {
-    return m_type;
+    m_x=nx;
   }
-  
-  
+  uint32_t
+  GetY()
+  {
+    return m_y;
+  }
+  void 
+  SetY(uint32_t ny)
+  {
+    m_y=ny;
+  }
+  float
+  GetSpeed()
+  {
+    return m_speed;
+  }
+  void 
+  SetSpeed(float v)
+  {
+    m_speed=v;
+  }
 private:
   Ipv4Address m_dst; ///< Destination IP Address
-  uint32_t m_type; ///< msg type
-  uint32_t m_dstSeqNo; ///< msg id
+  uint32_t m_hopCount; ///< Number of Hops
+  uint32_t m_dstSeqNo; ///< Destination Sequence Number
+  uint32_t m_x;
+  uint32_t m_y;
+  float m_speed;
 };
 static inline std::ostream & operator<< (std::ostream& os, const DreamHeader & packet)
 {

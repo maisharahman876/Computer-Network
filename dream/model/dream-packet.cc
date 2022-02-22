@@ -38,14 +38,17 @@ namespace dream {
 
 NS_OBJECT_ENSURE_REGISTERED (DreamHeader);
 
-DreamHeader::DreamHeader (Ipv4Address dst,std::string typ, uint32_t dstSeqNo)
+DreamHeader::DreamHeader (Ipv4Address dst, uint32_t hopCount, uint32_t dstSeqNo,uint32_t x, uint32_t y,float v)
   : m_dst (dst),
-    m_type(typ),
-    m_dstSeqNo(dstSeqNo)
+    m_hopCount (hopCount),
+    m_dstSeqNo (dstSeqNo),
+    m_x(x),
+    m_y(y),
+    m_speed(v)
 {
 }
 
-Dreameader::~DreamHeader ()
+DreamHeader::~DreamHeader ()
 {
 }
 
@@ -75,9 +78,10 @@ void
 DreamHeader::Serialize (Buffer::Iterator i) const
 {
   WriteTo (i, m_dst);
-  
-  i.WriteHtonU32 (m_type);
+  i.WriteHtonU32 (m_hopCount);
   i.WriteHtonU32 (m_dstSeqNo);
+  i.WriteHtonU32 (m_x);
+  i.WriteHtonU32 (m_y);
 
 }
 
@@ -87,8 +91,10 @@ DreamHeader::Deserialize (Buffer::Iterator start)
   Buffer::Iterator i = start;
 
   ReadFrom (i, m_dst);
-  m_type = i.ReadNtohU32 ();
+  m_hopCount = i.ReadNtohU32 ();
   m_dstSeqNo = i.ReadNtohU32 ();
+  m_x=i.ReadNtohU32 ();
+  m_y=i.ReadNtohU32 ();
 
   uint32_t dist = i.GetDistanceFrom (start);
   NS_ASSERT (dist == GetSerializedSize ());
@@ -99,8 +105,10 @@ void
 DreamHeader::Print (std::ostream &os) const
 {
   os << "DestinationIpv4: " << m_dst
-     << " MessageType: " << m_type
-     << " Sequence no: " << m_dstSeqNo;
+     << " Hopcount: " << m_hopCount
+     << " SequenceNumber: " << m_dstSeqNo
+     << " PositionX: " << m_x
+     << " PositionY: " << m_y;
 }
 }
 }

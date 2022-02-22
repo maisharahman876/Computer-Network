@@ -153,7 +153,8 @@ private:
   Ptr<NetDevice> m_lo;
   /// Main Routing table for the node
   RoutingTable m_routingTable;
-  
+  /// Advertised Routing table for the node
+  RoutingTable m_advRoutingTable;
   /// The maximum number of packets that we allow a routing protocol to buffer.
   uint32_t m_maxQueueLen;
   /// The maximum number of packets that we allow per destination to buffer.
@@ -260,3 +261,4 @@ private:
 }
 
 #endif /* DREAM_ROUTING_PROTOCOL_H */
+

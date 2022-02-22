@@ -41,7 +41,7 @@
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("DreamRoutingProtocol");
+NS_LOG_COMPONENT_DEFINE ("DsdvRoutingProtocol");
 
 namespace dream {
 
@@ -242,7 +242,7 @@ RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit 
   *stream->GetStream () << "Node: " << m_ipv4->GetObject<Node> ()->GetId ()
                         << ", Time: " << Now ().As (unit)
                         << ", Local time: " << m_ipv4->GetObject<Node> ()->GetLocalTime ().As (unit)
-                        << ", Dream Routing table" << std::endl;
+                        << ", dream Routing table" << std::endl;
 
   m_routingTable.Print (stream, unit);
   *stream->GetStream () << std::endl;
@@ -262,7 +262,7 @@ RoutingProtocol::Start ()
   m_periodicUpdateTimer.Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)));
 }
 
-/*Ptr<Ipv4Route>
+Ptr<Ipv4Route>
 RoutingProtocol::RouteOutput (Ptr<Packet> p,
                               const Ipv4Header &header,
                               Ptr<NetDevice> oif,
@@ -293,8 +293,8 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p,
        rmItr != removedAddresses.end (); ++rmItr)
     {
       rmItr->second.SetEntriesChanged (true);
-      //rmItr->second.SetSeqNo (rmItr->second.GetSeqNo () + 1);
-      //m_advRoutingTable.AddRoute (rmItr->second);
+      rmItr->second.SetSeqNo (rmItr->second.GetSeqNo () + 1);
+      m_advRoutingTable.AddRoute (rmItr->second);
     }
   if (!removedAddresses.empty ())
     {
@@ -306,8 +306,51 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p,
         {
           LookForQueuedPackets ();
         }
+      if (rt.GetHop () == 1)
+        {
+          route = rt.GetRoute ();
+          NS_ASSERT (route != 0);
+          NS_LOG_DEBUG ("A route exists from " << route->GetSource ()
+                                               << " to neighboring destination "
+                                               << route->GetDestination ());
+          if (oif != 0 && route->GetOutputDevice () != oif)
+            {
+              NS_LOG_DEBUG ("Output device doesn't match. Dropped.");
+              sockerr = Socket::ERROR_NOROUTETOHOST;
+              return Ptr<Ipv4Route> ();
+            }
+          return route;
+        }
+      else
+        {
+          RoutingTableEntry newrt;
+          if (m_routingTable.LookupRoute (rt.GetNextHop (),newrt))
+            {
+              route = newrt.GetRoute ();
+              NS_ASSERT (route != 0);
+              NS_LOG_DEBUG ("A route exists from " << route->GetSource ()
+                                                   << " to destination " << dst << " via "
+                                                   << rt.GetNextHop ());
+              if (oif != 0 && route->GetOutputDevice () != oif)
+                {
+                  NS_LOG_DEBUG ("Output device doesn't match. Dropped.");
+                  sockerr = Socket::ERROR_NOROUTETOHOST;
+                  return Ptr<Ipv4Route> ();
+                }
+              return route;
+            }
+        }
     }
-      
+
+  if (EnableBuffering)
+    {
+      uint32_t iif = (oif ? m_ipv4->GetInterfaceForDevice (oif) : -1);
+      DeferredRouteOutputTag tag (iif);
+      if (!p->PeekPacketTag (tag))
+        {
+          p->AddPacketTag (tag);
+        }
+    }
   return LoopbackRoute (header,oif);
 }
 
@@ -353,7 +396,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
   Ipv4Address dst = header.GetDestination ();
   Ipv4Address origin = header.GetSource ();
 
-  // Dream is not a multicast routing protocol
+  // dream is not a multicast routing protocol
   if (dst.IsMulticast ())
     {
       return false;
@@ -378,7 +421,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
           return true;
         }
     }
-  // LOCAL DELIVARY TO Dream INTERFACES
+  // LOCAL DELIVARY TO dream INTERFACES
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
        != m_socketAddresses.end (); ++j)
     {
@@ -441,7 +484,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
       return true;
     }
 
- /* RoutingTableEntry toDst;
+  RoutingTableEntry toDst;
   if (m_routingTable.LookupRoute (dst,toDst))
     {
       RoutingTableEntry ne;
@@ -470,17 +513,17 @@ RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) cons
   // rt->SetSource (hdr.GetSource ());
   //
   // Source address selection here is tricky.  The loopback route is
-  // returned when DSDV does not have a route; this causes the packet
+  // returned when dream does not have a route; this causes the packet
   // to be looped back and handled (cached) in RouteInput() method
   // while a route is found. However, connection-oriented protocols
   // like TCP need to create an endpoint four-tuple (src, src port,
   // dst, dst port) and create a pseudo-header for checksumming.  So,
-  // DSDV needs to guess correctly what the eventual source address
+  // dream needs to guess correctly what the eventual source address
   // will be.
   //
   // For single interface, single address nodes, this is not a problem.
   // When there are possibly multiple outgoing interfaces, the policy
-  // implemented here is to pick the first available DSDV interface.
+  // implemented here is to pick the first available dream interface.
   // If RouteOutput() caller specified an outgoing interface, that
   // further constrains the selection of source address
   //
@@ -503,22 +546,22 @@ RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) cons
     {
       rt->SetSource (j->second.GetLocal ());
     }
-  NS_ASSERT_MSG (rt->GetSource () != Ipv4Address (), "Valid DSDV source address not found");
+  NS_ASSERT_MSG (rt->GetSource () != Ipv4Address (), "Valid dream source address not found");
   rt->SetGateway (Ipv4Address ("127.0.0.1"));
   rt->SetOutputDevice (m_lo);
   return rt;
 }
-*/
+
 void
 RoutingProtocol::RecvDream (Ptr<Socket> socket)
 {
   Address sourceAddress;
-  //Ptr<Packet> advpacket = Create<Packet> ();
+  Ptr<Packet> advpacket = Create<Packet> ();
   Ptr<Packet> packet = socket->RecvFrom (sourceAddress);
   InetSocketAddress inetSourceAddr = InetSocketAddress::ConvertFrom (sourceAddress);
   Ipv4Address sender = inetSourceAddr.GetIpv4 ();
   Ipv4Address receiver = m_socketAddresses[socket].GetLocal ();
-  //Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
+  Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
   uint32_t packetSize = packet->GetSize ();
   NS_LOG_FUNCTION (m_mainAddress << " received dream packet of size: " << packetSize
                                  << " and packet id: " << packet->GetUid ());
@@ -536,9 +579,9 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
           Ipv4InterfaceAddress interface = j->second;
           if (dreamHeader.GetDst () == interface.GetLocal ())
             {
-              if (dsdvHeader.GetDstSeqno () % 2 == 1)
+              if (dreamHeader.GetDstSeqno () % 2 == 1)
                 {
-                  NS_LOG_DEBUG ("Sent Dsdv update back to the same Destination, "
+                  NS_LOG_DEBUG ("Sent dream update back to the same Destination, "
                                 "with infinite metric. Time left to send fwd update: "
                                 << m_periodicUpdateTimer.GetDelayLeft ());
                   count++;
@@ -554,23 +597,23 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
         {
           continue;
         }
-      NS_LOG_DEBUG ("Received a DSDV packet from "
-                    << sender << " to " << receiver << ". Details are: Destination: " << dsdvHeader.GetDst () << ", Seq No: "
-                    << dsdvHeader.GetDstSeqno () << ", HopCount: " << dsdvHeader.GetHopCount ());
+      NS_LOG_DEBUG ("Received a dream packet from "
+                    << sender << " to " << receiver << ". Details are: Destination: " << dreamHeader.GetDst () << ", Seq No: "
+                    << dreamHeader.GetDstSeqno () << ", HopCount: " << dreamHeader.GetHopCount ());
       RoutingTableEntry fwdTableEntry, advTableEntry;
       EventId event;
-      bool permanentTableVerifier = m_routingTable.LookupRoute (dsdvHeader.GetDst (),fwdTableEntry);
+      bool permanentTableVerifier = m_routingTable.LookupRoute (dreamHeader.GetDst (),fwdTableEntry);
       if (permanentTableVerifier == false)
         {
-          if (dsdvHeader.GetDstSeqno () % 2 != 1)
+          if (dreamHeader.GetDstSeqno () % 2 != 1)
             {
               NS_LOG_DEBUG ("Received New Route!");
               RoutingTableEntry newEntry (
                 /*device=*/ dev, /*dst=*/
-                dsdvHeader.GetDst (), /*seqno=*/
-                dsdvHeader.GetDstSeqno (),
+                dreamHeader.GetDst (), /*seqno=*/
+                dreamHeader.GetDstSeqno (),
                 /*iface=*/ m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0),
-                /*hops=*/ dsdvHeader.GetHopCount (), /*next hop=*/
+                /*hops=*/ dreamHeader.GetHopCount (), /*next hop=*/
                 sender, /*lifetime=*/
                 Simulator::Now (), /*settlingTime*/
                 m_settlingTime, /*entries changed*/
@@ -589,7 +632,7 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
         }
       else
         {
-          if (!m_advRoutingTable.LookupRoute (dsdvHeader.GetDst (),advTableEntry))
+          if (!m_advRoutingTable.LookupRoute (dreamHeader.GetDst (),advTableEntry))
             {
               RoutingTableEntry tr;
               std::map<Ipv4Address, RoutingTableEntry> allRoutes;
@@ -600,33 +643,33 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                 }
               // present in fwd table and not in advtable
               m_advRoutingTable.AddRoute (fwdTableEntry);
-              m_advRoutingTable.LookupRoute (dsdvHeader.GetDst (),advTableEntry);
+              m_advRoutingTable.LookupRoute (dreamHeader.GetDst (),advTableEntry);
             }
-          if (dsdvHeader.GetDstSeqno () % 2 != 1)
+          if (dreamHeader.GetDstSeqno () % 2 != 1)
             {
-              if (dsdvHeader.GetDstSeqno () > advTableEntry.GetSeqNo ())
+              if (dreamHeader.GetDstSeqno () > advTableEntry.GetSeqNo ())
                 {
                   // Received update with better seq number. Clear any old events that are running
-                  if (m_advRoutingTable.ForceDeleteIpv4Event (dsdvHeader.GetDst ()))
+                  if (m_advRoutingTable.ForceDeleteIpv4Event (dreamHeader.GetDst ()))
                     {
                       NS_LOG_DEBUG ("Canceling the timer to update route with better seq number");
                     }
                   // if its a changed metric *nomatter* where the update came from, wait  for WST
-                  if (dsdvHeader.GetHopCount () != advTableEntry.GetHop ())
+                  if (dreamHeader.GetHopCount () != advTableEntry.GetHop ())
                     {
-                      advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                      advTableEntry.SetSeqNo (dreamHeader.GetDstSeqno ());
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetHop (dsdvHeader.GetHopCount ());
+                      advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       NS_LOG_DEBUG ("Received update with better sequence number and changed metric.Waiting for WST");
-                      Time tempSettlingtime = GetSettlingTime (dsdvHeader.GetDst ());
+                      Time tempSettlingtime = GetSettlingTime (dreamHeader.GetDst ());
                       advTableEntry.SetSettlingTime (tempSettlingtime);
                       NS_LOG_DEBUG ("Added Settling Time:" << tempSettlingtime.As (Time::S)
                                                            << " as there is no event running for this route");
                       event = Simulator::Schedule (tempSettlingtime,&RoutingProtocol::SendTriggeredUpdate,this);
-                      m_advRoutingTable.AddIpv4Event (dsdvHeader.GetDst (),event);
+                      m_advRoutingTable.AddIpv4Event (dreamHeader.GetDst (),event);
                       NS_LOG_DEBUG ("EventCreated EventUID: " << event.GetUid ());
                       // if received changed metric, use it but adv it only after wst
                       m_routingTable.Update (advTableEntry);
@@ -635,38 +678,38 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                   else
                     {
                       // Received update with better seq number and same metric.
-                      advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                      advTableEntry.SetSeqNo (dreamHeader.GetDstSeqno ());
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetHop (dsdvHeader.GetHopCount ());
+                      advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       m_advRoutingTable.Update (advTableEntry);
                       NS_LOG_DEBUG ("Route with better sequence number and same metric received. Advertised without WST");
                     }
                 }
-              else if (dsdvHeader.GetDstSeqno () == advTableEntry.GetSeqNo ())
+              else if (dreamHeader.GetDstSeqno () == advTableEntry.GetSeqNo ())
                 {
-                  if (dsdvHeader.GetHopCount () < advTableEntry.GetHop ())
+                  if (dreamHeader.GetHopCount () < advTableEntry.GetHop ())
                     {
                       /*Received update with same seq number and better hop count.
                        * As the metric is changed, we will have to wait for WST before sending out this update.
                        */
                       NS_LOG_DEBUG ("Canceling any existing timer to update route with same sequence number "
                                     "and better hop count");
-                      m_advRoutingTable.ForceDeleteIpv4Event (dsdvHeader.GetDst ());
-                      advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                      m_advRoutingTable.ForceDeleteIpv4Event (dreamHeader.GetDst ());
+                      advTableEntry.SetSeqNo (dreamHeader.GetDstSeqno ());
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetHop (dsdvHeader.GetHopCount ());
-                      Time tempSettlingtime = GetSettlingTime (dsdvHeader.GetDst ());
+                      advTableEntry.SetHop (dreamHeader.GetHopCount ());
+                      Time tempSettlingtime = GetSettlingTime (dreamHeader.GetDst ());
                       advTableEntry.SetSettlingTime (tempSettlingtime);
                       NS_LOG_DEBUG ("Added Settling Time," << tempSettlingtime.As (Time::S)
                                                            << " as there is no current event running for this route");
                       event = Simulator::Schedule (tempSettlingtime,&RoutingProtocol::SendTriggeredUpdate,this);
-                      m_advRoutingTable.AddIpv4Event (dsdvHeader.GetDst (),event);
+                      m_advRoutingTable.AddIpv4Event (dreamHeader.GetDst (),event);
                       NS_LOG_DEBUG ("EventCreated EventUID: " << event.GetUid ());
                       // if received changed metric, use it but adv it only after wst
                       m_routingTable.Update (advTableEntry);
@@ -677,7 +720,7 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       /*Received update with same seq number but with same or greater hop count.
                        * Discard that update.
                        */
-                      if (!m_advRoutingTable.AnyRunningEvent (dsdvHeader.GetDst ()))
+                      if (!m_advRoutingTable.AnyRunningEvent (dreamHeader.GetDst ()))
                         {
                           /*update the timer only if nexthop address matches thus discarding
                            * updates to that destination from other nodes.
@@ -688,34 +731,34 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                               m_routingTable.Update (advTableEntry);
                             }
                           m_advRoutingTable.DeleteRoute (
-                            dsdvHeader.GetDst ());
+                            dreamHeader.GetDst ());
                         }
                       NS_LOG_DEBUG ("Received update with same seq number and "
-                                    "same/worst metric for, " << dsdvHeader.GetDst () << ". Discarding the update.");
+                                    "same/worst metric for, " << dreamHeader.GetDst () << ". Discarding the update.");
                     }
                 }
               else
                 {
                   // Received update with an old sequence number. Discard the update
-                  if (!m_advRoutingTable.AnyRunningEvent (dsdvHeader.GetDst ()))
+                  if (!m_advRoutingTable.AnyRunningEvent (dreamHeader.GetDst ()))
                     {
-                      m_advRoutingTable.DeleteRoute (dsdvHeader.GetDst ());
+                      m_advRoutingTable.DeleteRoute (dreamHeader.GetDst ());
                     }
-                  NS_LOG_DEBUG (dsdvHeader.GetDst () << " : Received update with old seq number. Discarding the update.");
+                  NS_LOG_DEBUG (dreamHeader.GetDst () << " : Received update with old seq number. Discarding the update.");
                 }
             }
           else
             {
               NS_LOG_DEBUG ("Route with infinite metric received for "
-                            << dsdvHeader.GetDst () << " from " << sender);
+                            << dreamHeader.GetDst () << " from " << sender);
               // Delete route only if update was received from my nexthop neighbor
               if (sender == advTableEntry.GetNextHop ())
                 {
                   NS_LOG_DEBUG ("Triggering an update for this unreachable route:");
                   std::map<Ipv4Address, RoutingTableEntry> dstsWithNextHopSrc;
-                  m_routingTable.GetListOfDestinationWithNextHop (dsdvHeader.GetDst (),dstsWithNextHopSrc);
-                  m_routingTable.DeleteRoute (dsdvHeader.GetDst ());
-                  advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                  m_routingTable.GetListOfDestinationWithNextHop (dreamHeader.GetDst (),dstsWithNextHopSrc);
+                  m_routingTable.DeleteRoute (dreamHeader.GetDst ());
+                  advTableEntry.SetSeqNo (dreamHeader.GetDstSeqno ());
                   advTableEntry.SetEntriesChanged (true);
                   m_advRoutingTable.Update (advTableEntry);
                   for (std::map<Ipv4Address, RoutingTableEntry>::iterator i = dstsWithNextHopSrc.begin (); i
@@ -729,11 +772,11 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                 }
               else
                 {
-                  if (!m_advRoutingTable.AnyRunningEvent (dsdvHeader.GetDst ()))
+                  if (!m_advRoutingTable.AnyRunningEvent (dreamHeader.GetDst ()))
                     {
-                      m_advRoutingTable.DeleteRoute (dsdvHeader.GetDst ());
+                      m_advRoutingTable.DeleteRoute (dreamHeader.GetDst ());
                     }
-                  NS_LOG_DEBUG (dsdvHeader.GetDst () <<
+                  NS_LOG_DEBUG (dreamHeader.GetDst () <<
                                 " : Discard this link break update as it was received from a different neighbor "
                                 "and I can reach the destination");
                 }
@@ -762,7 +805,7 @@ RoutingProtocol::SendTriggeredUpdate ()
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
        != m_socketAddresses.end (); ++j)
     {
-      DsdvHeader dsdvHeader;
+      DreamHeader dreamHeader;
       Ptr<Socket> socket = j->first;
       Ipv4InterfaceAddress iface = j->second;
       Ptr<Packet> packet = Create<Packet> ();
@@ -774,9 +817,9 @@ RoutingProtocol::SendTriggeredUpdate ()
           RoutingTableEntry temp = i->second;
           if ((i->second.GetEntriesChanged () == true) && (!m_advRoutingTable.AnyRunningEvent (temp.GetDestination ())))
             {
-              dsdvHeader.SetDst (i->second.GetDestination ());
-              dsdvHeader.SetDstSeqno (i->second.GetSeqNo ());
-              dsdvHeader.SetHopCount (i->second.GetHop () + 1);
+              dreamHeader.SetDst (i->second.GetDestination ());
+              dreamHeader.SetDstSeqno (i->second.GetSeqNo ());
+              dreamHeader.SetHopCount (i->second.GetHop () + 1);
               temp.SetFlag (VALID);
               temp.SetEntriesChanged (false);
               m_advRoutingTable.DeleteIpv4Event (temp.GetDestination ());
@@ -784,7 +827,7 @@ RoutingProtocol::SendTriggeredUpdate ()
                 {
                   m_routingTable.Update (temp);
                 }
-              packet->AddHeader (dsdvHeader);
+              packet->AddHeader (dreamHeader);
               m_advRoutingTable.DeleteRoute (temp.GetDestination ());
               NS_LOG_DEBUG ("Deleted this route from the advertised table");
             }
@@ -800,11 +843,11 @@ RoutingProtocol::SendTriggeredUpdate ()
         {
           RoutingTableEntry temp2;
           m_routingTable.LookupRoute (m_ipv4->GetAddress (1, 0).GetBroadcast (), temp2);
-          dsdvHeader.SetDst (m_ipv4->GetAddress (1, 0).GetLocal ());
-          dsdvHeader.SetDstSeqno (temp2.GetSeqNo ());
-          dsdvHeader.SetHopCount (temp2.GetHop () + 1);
+          dreamHeader.SetDst (m_ipv4->GetAddress (1, 0).GetLocal ());
+          dreamHeader.SetDstSeqno (temp2.GetSeqNo ());
+          dreamHeader.SetHopCount (temp2.GetHop () + 1);
           NS_LOG_DEBUG ("Adding my update as well to the packet");
-          packet->AddHeader (dsdvHeader);
+          packet->AddHeader (dreamHeader);
           // Send to all-hosts broadcast if on /32 addr, subnet-directed otherwise
           Ipv4Address destination;
           if (iface.GetMask () == Ipv4Mask::GetOnes ())
@@ -815,9 +858,9 @@ RoutingProtocol::SendTriggeredUpdate ()
             {
               destination = iface.GetBroadcast ();
             }
-          socket->SendTo (packet, 0, InetSocketAddress (destination, DSDV_PORT));
+          socket->SendTo (packet, 0, InetSocketAddress (destination, DREAM_PORT));
           NS_LOG_FUNCTION ("Sent Triggered Update from "
-                           << dsdvHeader.GetDst ()
+                           << dreamHeader.GetDst ()
                            << " with packet id : " << packet->GetUid () << " and packet Size: " << packet->GetSize ());
         }
       else
@@ -847,35 +890,35 @@ RoutingProtocol::SendPeriodicUpdate ()
       Ptr<Packet> packet = Create<Packet> ();
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator i = allRoutes.begin (); i != allRoutes.end (); ++i)
         {
-          DsdvHeader dsdvHeader;
+          DreamHeader dreamHeader;
           if (i->second.GetHop () == 0)
             {
               RoutingTableEntry ownEntry;
-              dsdvHeader.SetDst (m_ipv4->GetAddress (1,0).GetLocal ());
-              dsdvHeader.SetDstSeqno (i->second.GetSeqNo () + 2);
-              dsdvHeader.SetHopCount (i->second.GetHop () + 1);
+              dreamHeader.SetDst (m_ipv4->GetAddress (1,0).GetLocal ());
+              dreamHeader.SetDstSeqno (i->second.GetSeqNo () + 2);
+              dreamHeader.SetHopCount (i->second.GetHop () + 1);
               m_routingTable.LookupRoute (m_ipv4->GetAddress (1,0).GetBroadcast (),ownEntry);
-              ownEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+              ownEntry.SetSeqNo (dreamHeader.GetDstSeqno ());
               m_routingTable.Update (ownEntry);
-              packet->AddHeader (dsdvHeader);
+              packet->AddHeader (dreamHeader);
             }
           else
             {
-              dsdvHeader.SetDst (i->second.GetDestination ());
-              dsdvHeader.SetDstSeqno ((i->second.GetSeqNo ()));
-              dsdvHeader.SetHopCount (i->second.GetHop () + 1);
-              packet->AddHeader (dsdvHeader);
+              dreamHeader.SetDst (i->second.GetDestination ());
+              dreamHeader.SetDstSeqno ((i->second.GetSeqNo ()));
+              dreamHeader.SetHopCount (i->second.GetHop () + 1);
+              packet->AddHeader (dreamHeader);
             }
           NS_LOG_DEBUG ("Forwarding the update for " << i->first);
-          NS_LOG_DEBUG ("Forwarding details are, Destination: " << dsdvHeader.GetDst ()
-                                                                << ", SeqNo:" << dsdvHeader.GetDstSeqno ()
-                                                                << ", HopCount:" << dsdvHeader.GetHopCount ()
+          NS_LOG_DEBUG ("Forwarding details are, Destination: " << dreamHeader.GetDst ()
+                                                                << ", SeqNo:" << dreamHeader.GetDstSeqno ()
+                                                                << ", HopCount:" << dreamHeader.GetHopCount ()
                                                                 << ", LifeTime: " << i->second.GetLifeTime ().As (Time::S));
         }
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator rmItr = removedAddresses.begin (); rmItr
            != removedAddresses.end (); ++rmItr)
         {
-          DsdvHeader removedHeader;
+          DreamHeader removedHeader;
           removedHeader.SetDst (rmItr->second.GetDestination ());
           removedHeader.SetDstSeqno (rmItr->second.GetSeqNo () + 1);
           removedHeader.SetHopCount (rmItr->second.GetHop () + 1);
@@ -895,7 +938,7 @@ RoutingProtocol::SendPeriodicUpdate ()
         {
           destination = iface.GetBroadcast ();
         }
-      socket->SendTo (packet, 0, InetSocketAddress (destination, DSDV_PORT));
+      socket->SendTo (packet, 0, InetSocketAddress (destination, DREAM_PORT));
       NS_LOG_FUNCTION ("PeriodicUpdate Packet UID is : " << packet->GetUid ());
     }
   m_periodicUpdateTimer.Schedule (m_periodicUpdateInterval + MicroSeconds (25 * m_uniformRandomVariable->GetInteger (0,1000)));
@@ -940,9 +983,9 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
   // Create a socket to listen only on this interface
   Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
   NS_ASSERT (socket != 0);
-  socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDsdv,this));
+  socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDream,this));
   socket->BindToNetDevice (l3->GetNetDevice (i));
-  socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DSDV_PORT));
+  socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DREAM_PORT));
   socket->SetAllowBroadcast (true);
   socket->SetAttribute ("IpTtl",UintegerValue (1));
   m_socketAddresses.insert (std::make_pair (socket,iface));
@@ -969,7 +1012,7 @@ RoutingProtocol::NotifyInterfaceDown (uint32_t i)
   m_socketAddresses.erase (socket);
   if (m_socketAddresses.empty ())
     {
-      NS_LOG_LOGIC ("No dsdv interfaces");
+      NS_LOG_LOGIC ("No dream interfaces");
       m_routingTable.Clear ();
       return;
     }
@@ -997,10 +1040,10 @@ RoutingProtocol::NotifyAddAddress (uint32_t i,
         }
       Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
       NS_ASSERT (socket != 0);
-      socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDsdv,this));
+      socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDream,this));
       // Bind to any IP address so that broadcasts can be received
       socket->BindToNetDevice (l3->GetNetDevice (i));
-      socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DSDV_PORT));
+      socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DREAM_PORT));
       socket->SetAllowBroadcast (true);
       m_socketAddresses.insert (std::make_pair (socket,iface));
       Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (iface.GetLocal ()));
@@ -1025,9 +1068,9 @@ RoutingProtocol::NotifyRemoveAddress (uint32_t i,
           // Create a socket to listen only on this interface
           Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
           NS_ASSERT (socket != 0);
-          socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDsdv,this));
+          socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDream,this));
           // Bind to any IP address so that broadcasts can be received
-          socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DSDV_PORT));
+          socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DREAM_PORT));
           socket->SetAllowBroadcast (true);
           m_socketAddresses.insert (std::make_pair (socket,iface));
         }
