@@ -42,14 +42,14 @@
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("DsdvRoutingProtocol");
+NS_LOG_COMPONENT_DEFINE ("DreamRoutingProtocol");
 
 namespace dream {
 
-NS_OBJECT_ENSURE_REGISTERED (RoutingProtocol);
+NS_OBJECT_ENSURE_REGISTERED (DreamRoutingProtocol);
 
 /// UDP Port for dream control traffic
-const uint32_t RoutingProtocol::DREAM_PORT = 269;
+const uint32_t DreamRoutingProtocol::DREAM_PORT = 269;
 
 /// Tag used by dream implementation
 struct DeferredRouteOutputTag : public Tag
@@ -115,103 +115,103 @@ struct DeferredRouteOutputTag : public Tag
 };
 
 TypeId
-RoutingProtocol::GetTypeId (void)
+DreamRoutingProtocol::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::dream::RoutingProtocol")
+  static TypeId tid = TypeId ("ns3::dream::DreamRoutingProtocol")
     .SetParent<Ipv4RoutingProtocol> ()
     .SetGroupName ("Dream")
-    .AddConstructor<RoutingProtocol> ()
+    .AddConstructor<DreamRoutingProtocol> ()
     .AddAttribute ("PeriodicUpdateInterval","Periodic interval between exchange of full routing tables among nodes. ",
                    TimeValue (Seconds (15)),
-                   MakeTimeAccessor (&RoutingProtocol::m_periodicUpdateInterval),
+                   MakeTimeAccessor (&DreamRoutingProtocol::m_periodicUpdateInterval),
                    MakeTimeChecker ())
     .AddAttribute ("SettlingTime", "Minimum time an update is to be stored in adv table before sending out"
                    "in case of change in metric (in seconds)",
                    TimeValue (Seconds (5)),
-                   MakeTimeAccessor (&RoutingProtocol::m_settlingTime),
+                   MakeTimeAccessor (&DreamRoutingProtocol::m_settlingTime),
                    MakeTimeChecker ())
     .AddAttribute ("MaxQueueLen", "Maximum number of packets that we allow a routing protocol to buffer.",
                    UintegerValue (500 /*assuming maximum nodes in simulation is 100*/),
-                   MakeUintegerAccessor (&RoutingProtocol::m_maxQueueLen),
+                   MakeUintegerAccessor (&DreamRoutingProtocol::m_maxQueueLen),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("MaxQueuedPacketsPerDst", "Maximum number of packets that we allow per destination to buffer.",
                    UintegerValue (5),
-                   MakeUintegerAccessor (&RoutingProtocol::m_maxQueuedPacketsPerDst),
+                   MakeUintegerAccessor (&DreamRoutingProtocol::m_maxQueuedPacketsPerDst),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("MaxQueueTime","Maximum time packets can be queued (in seconds)",
                    TimeValue (Seconds (30)),
-                   MakeTimeAccessor (&RoutingProtocol::m_maxQueueTime),
+                   MakeTimeAccessor (&DreamRoutingProtocol::m_maxQueueTime),
                    MakeTimeChecker ())
     .AddAttribute ("EnableBuffering","Enables buffering of data packets if no route to destination is available",
                    BooleanValue (true),
-                   MakeBooleanAccessor (&RoutingProtocol::SetEnableBufferFlag,
-                                        &RoutingProtocol::GetEnableBufferFlag),
+                   MakeBooleanAccessor (&DreamRoutingProtocol::SetEnableBufferFlag,
+                                        &DreamRoutingProtocol::GetEnableBufferFlag),
                    MakeBooleanChecker ())
     .AddAttribute ("EnableWST","Enables Weighted Settling Time for the updates before advertising",
                    BooleanValue (true),
-                   MakeBooleanAccessor (&RoutingProtocol::SetWSTFlag,
-                                        &RoutingProtocol::GetWSTFlag),
+                   MakeBooleanAccessor (&DreamRoutingProtocol::SetWSTFlag,
+                                        &DreamRoutingProtocol::GetWSTFlag),
                    MakeBooleanChecker ())
     .AddAttribute ("Holdtimes","Times the forwarding Interval to purge the route.",
                    UintegerValue (3),
-                   MakeUintegerAccessor (&RoutingProtocol::Holdtimes),
+                   MakeUintegerAccessor (&DreamRoutingProtocol::Holdtimes),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("WeightedFactor","WeightedFactor for the settling time if Weighted Settling Time is enabled",
                    DoubleValue (0.875),
-                   MakeDoubleAccessor (&RoutingProtocol::m_weightedFactor),
+                   MakeDoubleAccessor (&DreamRoutingProtocol::m_weightedFactor),
                    MakeDoubleChecker<double> ())
     .AddAttribute ("EnableRouteAggregation","Enables Weighted Settling Time for the updates before advertising",
                    BooleanValue (false),
-                   MakeBooleanAccessor (&RoutingProtocol::SetEnableRAFlag,
-                                        &RoutingProtocol::GetEnableRAFlag),
+                   MakeBooleanAccessor (&DreamRoutingProtocol::SetEnableRAFlag,
+                                        &DreamRoutingProtocol::GetEnableRAFlag),
                    MakeBooleanChecker ())
     .AddAttribute ("RouteAggregationTime","Time to aggregate updates before sending them out (in seconds)",
                    TimeValue (Seconds (1)),
-                   MakeTimeAccessor (&RoutingProtocol::m_routeAggregationTime),
+                   MakeTimeAccessor (&DreamRoutingProtocol::m_routeAggregationTime),
                    MakeTimeChecker ());
   return tid;
 }
 
 void
-RoutingProtocol::SetEnableBufferFlag (bool f)
+DreamRoutingProtocol::SetEnableBufferFlag (bool f)
 {
   EnableBuffering = f;
 }
 bool
-RoutingProtocol::GetEnableBufferFlag () const
+DreamRoutingProtocol::GetEnableBufferFlag () const
 {
   return EnableBuffering;
 }
 void
-RoutingProtocol::SetWSTFlag (bool f)
+DreamRoutingProtocol::SetWSTFlag (bool f)
 {
   EnableWST = f;
 }
 bool
-RoutingProtocol::GetWSTFlag () const
+DreamRoutingProtocol::GetWSTFlag () const
 {
   return EnableWST;
 }
 void
-RoutingProtocol::SetEnableRAFlag (bool f)
+DreamRoutingProtocol::SetEnableRAFlag (bool f)
 {
   EnableRouteAggregation = f;
 }
 bool
-RoutingProtocol::GetEnableRAFlag () const
+DreamRoutingProtocol::GetEnableRAFlag () const
 {
   return EnableRouteAggregation;
 }
 
 int64_t
-RoutingProtocol::AssignStreams (int64_t stream)
+DreamRoutingProtocol::AssignStreams (int64_t stream)
 {
   NS_LOG_FUNCTION (this << stream);
   m_uniformRandomVariable->SetStream (stream);
   return 1;
 }
 
-RoutingProtocol::RoutingProtocol ()
+DreamRoutingProtocol::DreamRoutingProtocol ()
   : m_routingTable (),
     m_advRoutingTable (),
     m_queue (),
@@ -220,12 +220,12 @@ RoutingProtocol::RoutingProtocol ()
   m_uniformRandomVariable = CreateObject<UniformRandomVariable> ();
 }
 
-RoutingProtocol::~RoutingProtocol ()
+DreamRoutingProtocol::~DreamRoutingProtocol ()
 {
 }
 
 void
-RoutingProtocol::DoDispose ()
+DreamRoutingProtocol::DoDispose ()
 {
   m_ipv4 = 0;
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator iter = m_socketAddresses.begin (); iter
@@ -238,7 +238,7 @@ RoutingProtocol::DoDispose ()
 }
 
 void
-RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
+DreamRoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
 {
   *stream->GetStream () << "Node: " << m_ipv4->GetObject<Node> ()->GetId ()
                         << ", Time: " << Now ().As (unit)
@@ -250,21 +250,21 @@ RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit 
 }
 
 void
-RoutingProtocol::Start ()
+DreamRoutingProtocol::Start ()
 {
   m_queue.SetMaxPacketsPerDst (m_maxQueuedPacketsPerDst);
   m_queue.SetMaxQueueLen (m_maxQueueLen);
   m_queue.SetQueueTimeout (m_maxQueueTime);
   m_routingTable.Setholddowntime (Time (Holdtimes * m_periodicUpdateInterval));
   m_advRoutingTable.Setholddowntime (Time (Holdtimes * m_periodicUpdateInterval));
-  m_scb = MakeCallback (&RoutingProtocol::Send,this);
-  m_ecb = MakeCallback (&RoutingProtocol::Drop,this);
-  m_periodicUpdateTimer.SetFunction (&RoutingProtocol::SendPeriodicUpdate,this);
+  m_scb = MakeCallback (&DreamRoutingProtocol::Send,this);
+  m_ecb = MakeCallback (&DreamRoutingProtocol::Drop,this);
+  m_periodicUpdateTimer.SetFunction (&DreamRoutingProtocol::SendPeriodicUpdate,this);
   m_periodicUpdateTimer.Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)));
 }
 
 Ptr<Ipv4Route>
-RoutingProtocol::RouteOutput (Ptr<Packet> p,
+DreamRoutingProtocol::RouteOutput (Ptr<Packet> p,
                               const Ipv4Header &header,
                               Ptr<NetDevice> oif,
                               Socket::SocketErrno &sockerr)
@@ -299,7 +299,7 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p,
     }
   if (!removedAddresses.empty ())
     {
-      Simulator::Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)),&RoutingProtocol::SendTriggeredUpdate,this);
+      Simulator::Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)),&DreamRoutingProtocol::SendTriggeredUpdate,this);
     }
   if (m_routingTable.LookupRoute (dst,rt))
     {
@@ -356,7 +356,7 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p,
 }
 
 void
-RoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p,
+DreamRoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p,
                                       const Ipv4Header & header,
                                       UnicastForwardCallback ucb,
                                       ErrorCallback ecb)
@@ -372,7 +372,7 @@ RoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p,
 }
 
 bool
-RoutingProtocol::RouteInput (Ptr<const Packet> p,
+DreamRoutingProtocol::RouteInput (Ptr<const Packet> p,
                              const Ipv4Header &header,
                              Ptr<const NetDevice> idev,
                              UnicastForwardCallback ucb,
@@ -508,7 +508,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
 }
 
 Ptr<Ipv4Route>
-RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) const
+DreamRoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) const
 {
   NS_ASSERT (m_lo != 0);
   Ptr<Ipv4Route> rt = Create<Ipv4Route> ();
@@ -556,7 +556,7 @@ RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) cons
 }
 
 void
-RoutingProtocol::RecvDream (Ptr<Socket> socket)
+DreamRoutingProtocol::RecvDream (Ptr<Socket> socket)
 {
   Address sourceAddress;
   Ptr<Packet> advpacket = Create<Packet> ();
@@ -673,8 +673,12 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       //////Maisha////////////
-                      //advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetNextHop (m_routingTable.getClosestAddress(dreamHeader.GetDst ()));
+                      Ipv4Address temp=Ipv4Address();
+                      Ipv4Address a=m_routingTable.getClosestAddress(dreamHeader.GetDst ());
+                      if(a==temp)
+                      advTableEntry.SetNextHop (sender);
+                      else
+                      advTableEntry.SetNextHop (a);
                       //////////////////
                       advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       NS_LOG_DEBUG ("Received update with better sequence number and changed metric.Waiting for WST");
@@ -682,7 +686,7 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetSettlingTime (tempSettlingtime);
                       NS_LOG_DEBUG ("Added Settling Time:" << tempSettlingtime.As (Time::S)
                                                            << " as there is no event running for this route");
-                      event = Simulator::Schedule (tempSettlingtime,&RoutingProtocol::SendTriggeredUpdate,this);
+                      event = Simulator::Schedule (tempSettlingtime,&DreamRoutingProtocol::SendTriggeredUpdate,this);
                       m_advRoutingTable.AddIpv4Event (dreamHeader.GetDst (),event);
                       NS_LOG_DEBUG ("EventCreated EventUID: " << event.GetUid ());
                       // if received changed metric, use it but adv it only after wst
@@ -697,8 +701,12 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       //////Maisha////////////
-                      //advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetNextHop (m_routingTable.getClosestAddress(dreamHeader.GetDst ()));
+                      Ipv4Address temp=Ipv4Address();
+                      Ipv4Address a=m_routingTable.getClosestAddress(dreamHeader.GetDst ());
+                      if(a==temp)
+                      advTableEntry.SetNextHop (sender);
+                      else
+                      advTableEntry.SetNextHop (a);
                       //////////////////
                       advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       m_advRoutingTable.Update (advTableEntry);
@@ -720,15 +728,20 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       //////Maisha////////////
-                      //advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetNextHop (m_routingTable.getClosestAddress(dreamHeader.GetDst ()));
+                      Ipv4Address temp=Ipv4Address();
+                      Ipv4Address a=m_routingTable.getClosestAddress(dreamHeader.GetDst ());
+                      if(a==temp)
+                      advTableEntry.SetNextHop (sender);
+                      else
+                      advTableEntry.SetNextHop (a);
                       //////////////////
+                     
                       advTableEntry.SetHop (dreamHeader.GetHopCount ());
                       Time tempSettlingtime = GetSettlingTime (dreamHeader.GetDst ());
                       advTableEntry.SetSettlingTime (tempSettlingtime);
                       NS_LOG_DEBUG ("Added Settling Time," << tempSettlingtime.As (Time::S)
                                                            << " as there is no current event running for this route");
-                      event = Simulator::Schedule (tempSettlingtime,&RoutingProtocol::SendTriggeredUpdate,this);
+                      event = Simulator::Schedule (tempSettlingtime,&DreamRoutingProtocol::SendTriggeredUpdate,this);
                       m_advRoutingTable.AddIpv4Event (dreamHeader.GetDst (),event);
                       NS_LOG_DEBUG ("EventCreated EventUID: " << event.GetUid ());
                       // if received changed metric, use it but adv it only after wst
@@ -807,17 +820,17 @@ RoutingProtocol::RecvDream (Ptr<Socket> socket)
   m_advRoutingTable.GetListOfAllRoutes (allRoutes);
   if (EnableRouteAggregation && allRoutes.size () > 0)
     {
-      Simulator::Schedule (m_routeAggregationTime,&RoutingProtocol::SendTriggeredUpdate,this);
+      Simulator::Schedule (m_routeAggregationTime,&DreamRoutingProtocol::SendTriggeredUpdate,this);
     }
   else
     {
-      Simulator::Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)),&RoutingProtocol::SendTriggeredUpdate,this);
+      Simulator::Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)),&DreamRoutingProtocol::SendTriggeredUpdate,this);
     }
 }
 
 
 void
-RoutingProtocol::SendTriggeredUpdate ()
+DreamRoutingProtocol::SendTriggeredUpdate ()
 {
   NS_LOG_FUNCTION (m_mainAddress << " is sending a triggered update");
   std::map<Ipv4Address, RoutingTableEntry> allRoutes;
@@ -915,7 +928,7 @@ RoutingProtocol::SendTriggeredUpdate ()
 }
 
 void
-RoutingProtocol::SendPeriodicUpdate ()
+DreamRoutingProtocol::SendPeriodicUpdate ()
 {
   std::map<Ipv4Address, RoutingTableEntry> removedAddresses, allRoutes;
   m_routingTable.Purge (removedAddresses);
@@ -1026,7 +1039,7 @@ RoutingProtocol::SendPeriodicUpdate ()
 }
 
 void
-RoutingProtocol::SetIpv4 (Ptr<Ipv4> ipv4)
+DreamRoutingProtocol::SetIpv4 (Ptr<Ipv4> ipv4)
 {
   NS_ASSERT (ipv4 != 0);
   NS_ASSERT (m_ipv4 == 0);
@@ -1047,11 +1060,11 @@ RoutingProtocol::SetIpv4 (Ptr<Ipv4> ipv4)
   rt.SetFlag (INVALID);
   rt.SetEntriesChanged (false);
   m_routingTable.AddRoute (rt);
-  Simulator::ScheduleNow (&RoutingProtocol::Start,this);
+  Simulator::ScheduleNow (&DreamRoutingProtocol::Start,this);
 }
 
 void
-RoutingProtocol::NotifyInterfaceUp (uint32_t i)
+DreamRoutingProtocol::NotifyInterfaceUp (uint32_t i)
 {
   NS_LOG_FUNCTION (this << m_ipv4->GetAddress (i, 0).GetLocal ()
                         << " interface is up");
@@ -1064,7 +1077,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
   // Create a socket to listen only on this interface
   Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
   NS_ASSERT (socket != 0);
-  socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDream,this));
+  socket->SetRecvCallback (MakeCallback (&DreamRoutingProtocol::RecvDream,this));
   socket->BindToNetDevice (l3->GetNetDevice (i));
   socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DREAM_PORT));
   socket->SetAllowBroadcast (true);
@@ -1083,7 +1096,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
 }
 
 void
-RoutingProtocol::NotifyInterfaceDown (uint32_t i)
+DreamRoutingProtocol::NotifyInterfaceDown (uint32_t i)
 {
   Ptr<Ipv4L3Protocol> l3 = m_ipv4->GetObject<Ipv4L3Protocol> ();
   Ptr<NetDevice> dev = l3->GetNetDevice (i);
@@ -1102,7 +1115,7 @@ RoutingProtocol::NotifyInterfaceDown (uint32_t i)
 }
 
 void
-RoutingProtocol::NotifyAddAddress (uint32_t i,
+DreamRoutingProtocol::NotifyAddAddress (uint32_t i,
                                    Ipv4InterfaceAddress address)
 {
   NS_LOG_FUNCTION (this << " interface " << i << " address " << address);
@@ -1121,7 +1134,7 @@ RoutingProtocol::NotifyAddAddress (uint32_t i,
         }
       Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
       NS_ASSERT (socket != 0);
-      socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDream,this));
+      socket->SetRecvCallback (MakeCallback (&DreamRoutingProtocol::RecvDream,this));
       // Bind to any IP address so that broadcasts can be received
       socket->BindToNetDevice (l3->GetNetDevice (i));
       socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DREAM_PORT));
@@ -1135,7 +1148,7 @@ RoutingProtocol::NotifyAddAddress (uint32_t i,
 }
 
 void
-RoutingProtocol::NotifyRemoveAddress (uint32_t i,
+DreamRoutingProtocol::NotifyRemoveAddress (uint32_t i,
                                       Ipv4InterfaceAddress address)
 {
   Ptr<Socket> socket = FindSocketWithInterfaceAddress (address);
@@ -1149,7 +1162,7 @@ RoutingProtocol::NotifyRemoveAddress (uint32_t i,
           // Create a socket to listen only on this interface
           Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
           NS_ASSERT (socket != 0);
-          socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDream,this));
+          socket->SetRecvCallback (MakeCallback (&DreamRoutingProtocol::RecvDream,this));
           // Bind to any IP address so that broadcasts can be received
           socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DREAM_PORT));
           socket->SetAllowBroadcast (true);
@@ -1159,7 +1172,7 @@ RoutingProtocol::NotifyRemoveAddress (uint32_t i,
 }
 
 Ptr<Socket>
-RoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr) const
+DreamRoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr) const
 {
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
        != m_socketAddresses.end (); ++j)
@@ -1176,7 +1189,7 @@ RoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr) cons
 }
 
 void
-RoutingProtocol::Send (Ptr<Ipv4Route> route,
+DreamRoutingProtocol::Send (Ptr<Ipv4Route> route,
                        Ptr<const Packet> packet,
                        const Ipv4Header & header)
 {
@@ -1187,7 +1200,7 @@ RoutingProtocol::Send (Ptr<Ipv4Route> route,
 }
 
 void
-RoutingProtocol::Drop (Ptr<const Packet> packet,
+DreamRoutingProtocol::Drop (Ptr<const Packet> packet,
                        const Ipv4Header & header,
                        Socket::SocketErrno err)
 {
@@ -1196,7 +1209,7 @@ RoutingProtocol::Drop (Ptr<const Packet> packet,
 }
 
 void
-RoutingProtocol::LookForQueuedPackets ()
+DreamRoutingProtocol::LookForQueuedPackets ()
 {
   NS_LOG_FUNCTION (this);
   Ptr<Ipv4Route> route;
@@ -1232,7 +1245,7 @@ RoutingProtocol::LookForQueuedPackets ()
 }
 
 void
-RoutingProtocol::SendPacketFromQueue (Ipv4Address dst,
+DreamRoutingProtocol::SendPacketFromQueue (Ipv4Address dst,
                                       Ptr<Ipv4Route> route)
 {
   NS_LOG_DEBUG (m_mainAddress << " is sending a queued packet to destination " << dst);
@@ -1257,13 +1270,13 @@ RoutingProtocol::SendPacketFromQueue (Ipv4Address dst,
       if (m_queue.GetSize () != 0 && m_queue.Find (dst))
         {
           Simulator::Schedule (MilliSeconds (m_uniformRandomVariable->GetInteger (0,100)),
-                               &RoutingProtocol::SendPacketFromQueue,this,dst,route);
+                               &DreamRoutingProtocol::SendPacketFromQueue,this,dst,route);
         }
     }
 }
 
 Time
-RoutingProtocol::GetSettlingTime (Ipv4Address address)
+DreamRoutingProtocol::GetSettlingTime (Ipv4Address address)
 {
   NS_LOG_FUNCTION ("Calculating the settling time for " << address);
   RoutingTableEntry mainrt;
@@ -1289,7 +1302,7 @@ RoutingProtocol::GetSettlingTime (Ipv4Address address)
 }
 
 void
-RoutingProtocol::MergeTriggerPeriodicUpdates ()
+DreamRoutingProtocol::MergeTriggerPeriodicUpdates ()
 {
   NS_LOG_FUNCTION ("Merging advertised table changes with main table before sending out periodic update");
   std::map<Ipv4Address, RoutingTableEntry> allRoutes;

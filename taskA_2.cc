@@ -52,7 +52,7 @@ SetupPacketReceive (Ipv6Address addr, Ptr<Node> node)
 int main (int argc, char** argv)
 {
   bool verbose = false;
-  uint32_t nWifi = 10;
+  uint32_t nWifi = 20;
   int nSinks =5;
   uint32_t pktpersec = 100;
   int Speed=5;
@@ -210,7 +210,7 @@ AnimationInterface anim ("taskA_2.xml");
   Simulator::Run ();
    flowMonitor->CheckForLostPackets ();
   
-  Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowHelper.GetClassifier ());
+  //Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowHelper.GetClassifier ());
   std::map<FlowId, FlowMonitor::FlowStats> stats = flowMonitor->GetFlowStats ();
   
   for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin (); i != stats.end (); ++i)

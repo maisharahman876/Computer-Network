@@ -41,7 +41,7 @@ DreamHelper::~DreamHelper ()
 
 DreamHelper::DreamHelper () : Ipv4RoutingHelper ()
 {
-  m_agentFactory.SetTypeId ("ns3::dream::RoutingProtocol");
+  m_agentFactory.SetTypeId ("ns3::dream::DreamRoutingProtocol");
 }
 
 DreamHelper*
@@ -54,7 +54,7 @@ DreamHelper::Copy (void) const
 Ptr<Ipv4RoutingProtocol>
 DreamHelper::Create (Ptr<Node> node) const
 {
-  Ptr<dream::RoutingProtocol> agent = m_agentFactory.Create<dream::RoutingProtocol> ();
+  Ptr<dream::DreamRoutingProtocol> agent = m_agentFactory.Create<dream::DreamRoutingProtocol> ();
   node->AggregateObject (agent);
   return agent;
 }

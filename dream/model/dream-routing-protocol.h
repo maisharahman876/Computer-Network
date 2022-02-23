@@ -50,7 +50,7 @@ namespace dream {
  * \ingroup dream
  * \brief dream routing protocol.
  */
-class RoutingProtocol : public Ipv4RoutingProtocol
+class DreamRoutingProtocol : public Ipv4RoutingProtocol
 {
 public:
   /**
@@ -61,9 +61,9 @@ public:
   static const uint32_t DREAM_PORT;
 
   /// c-tor
-  RoutingProtocol ();
+  DreamRoutingProtocol ();
   virtual
-  ~RoutingProtocol ();
+  ~DreamRoutingProtocol ();
   virtual void
   DoDispose ();
 

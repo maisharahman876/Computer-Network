@@ -394,6 +394,9 @@ RoutingTable::AddMobilityData(Ipv4Address src, uint32_t x, uint32_t y, float v)
   }
   m_locationEntry.insert({src, std::make_tuple(x,y,v)});
 }
+
+
+
 Ipv4Address 
 RoutingTable::getClosestAddress(Ipv4Address src)
 {
@@ -410,7 +413,9 @@ RoutingTable::getClosestAddress(Ipv4Address src)
       v=std::get<2>(i->second);
     }
   }
-  float theta = std::asin(v*0.000000015/sqrt(x*x+y*y));
+  if(x==0&&y==0&&v==0.0)
+  return Ipv4Address();
+  float theta = std::atan(y/x);
   float  min=-999999999.99;
   for(std::map <Ipv4Address,std::tuple<uint32_t,uint32_t,float>>::const_iterator i=m_locationEntry.begin();i!=m_locationEntry.end();++i)
   {

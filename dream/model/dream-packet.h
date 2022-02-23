@@ -39,21 +39,7 @@
 
 namespace ns3 {
 namespace dream {
-/**
- * \ingroup dream
- * \brief dream Update Packet Format
- * \verbatim
- |      0        |      1        |      2        |       3       |
-  0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                      Destination Address                      |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                            HopCount                           |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- |                       Sequence Number                         |
- +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * \endverbatim
- */
+
 
 class DreamHeader : public Header
 {
@@ -64,6 +50,10 @@ public:
    * \param dst destination IP address
    * \param hopcount hop count
    * \param dstSeqNo destination sequence number
+   * \param src Source IP Address
+   * \param x   Position of node in x axis
+   * \param y   Position of node in y axis
+   * \param speed   Speed of source
    */
   DreamHeader (Ipv4Address dst = Ipv4Address (), uint32_t hopcount = 0, uint32_t dstSeqNo = 0,uint32_t x=0,uint32_t y=0,float speed=0.0);
   virtual ~DreamHeader ();

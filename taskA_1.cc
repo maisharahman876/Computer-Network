@@ -34,13 +34,7 @@
  
 // Default Network Topology
 //
-//   Wifi 10.1.3.0
-//                 AP
-//  *    *    *    *
-//  |    |    |    |    10.1.1.0
-// n2   n3   n4   n0 -------------- n1 
-//                   point-to-point  |   
-//                                   *    
+//  
 //                                     
 
 using namespace ns3;
@@ -62,7 +56,7 @@ main (int argc, char *argv[])
 {
   bool verbose = true;
  
-  uint32_t nWifi = 10;
+  uint32_t nWifi = 20;
   int nSinks = 5;
   uint32_t pktpersec = 100;
   uint32_t coverageArea = 50;
@@ -86,7 +80,7 @@ main (int argc, char *argv[])
   // bounding box if more than 18 nodes are provided.
   std::ofstream out (csv.c_str (),std::ios::app);
  
-  nWifi-=2;
+ 
   if (verbose)
     {
       LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
@@ -123,7 +117,6 @@ main (int argc, char *argv[])
   YansWifiChannelHelper wifiChannel1;
   wifiChannel1.AddPropagationLoss("ns3::RangePropagationLossModel","MaxRange",DoubleValue(coverageArea));
   wifiChannel1.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
-  wifiChannel1.AddPropagationLoss ("ns3::FriisPropagationLossModel");
   wifiPhy1.SetChannel (wifiChannel1.Create ());
  
   // Add a mac and disable rate control
@@ -156,7 +149,7 @@ main (int argc, char *argv[])
 
 
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-   mobility.Install (wifiNodes);
+  mobility.Install (wifiNodes);
   //mobility.Install (p2pNodes);
 
   InternetStackHelper stack;
@@ -210,7 +203,12 @@ OnOffHelper onoff1 ("ns3::UdpSocketFactory",Address ());
       onoff1.SetAttribute ("Remote", remoteAddress1);
  
       Ptr<UniformRandomVariable> var1 = CreateObject<UniformRandomVariable> ();
-      ApplicationContainer temp1 = onoff1.Install (wifiNodes.Get (i+nSinks/2));
+      ApplicationContainer temp1;
+      if(i+nSinks/2<(int)nWifi)
+      temp1 = onoff1.Install (wifiNodes.Get (i+nSinks/2));
+      else
+      temp1 = onoff1.Install (wifiNodes.Get (nSinks-i));
+      
       
       
       //////////////////////////////////////////////////////
@@ -277,7 +275,7 @@ OnOffHelper onoff1 ("ns3::UdpSocketFactory",Address ());
   std::cout << "  Packets Drop Ratio: " << (((lostPacketssum) * 100) /txPacketsum) << "%" << "\n";
   
   Simulator::Destroy ();
-  out<<pktpersec<<","<<th<<","<<Delaysum<<","<<(((rxPacketsum) * 100) /txPacketsum)<<","<<(((lostPacketssum) * 100) /txPacketsum)<<endl;
+  out<<nSinks<<","<<th<<","<<Delaysum<<","<<(((rxPacketsum) * 100) /txPacketsum)<<","<<(((lostPacketssum) * 100) /txPacketsum)<<endl;
   out.close();
   return 0;
 }
